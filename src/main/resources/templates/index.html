@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Verify the authenticity of academic and professional certificates using blockchain technology, even without an Internet connection.">
+    <title th:text="${pageTitle}">Offline Certificate Verification Using Blockchain</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+    <!-- ========== HEADER / NAVIGATION ========== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon">&#128196;</span>
+                <span class="brand-name">Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <nav class="nav" id="main-nav" aria-label="Main navigation">
+                <ul class="nav-list">
+                    <li><a href="/" class="nav-link active" id="nav-home">Home</a></li>
+                    <li><a href="/verify" class="nav-link" id="nav-verify">Verify Certificate</a></li>
+                    <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
+                    <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ========== HERO SECTION ========== -->
+    <main>
+        <section class="hero" id="hero">
+            <div class="container hero-inner">
+                <div class="hero-content">
+                    <span class="hero-badge">Blockchain-Powered</span>
+                    <h1 class="hero-title">Offline Certificate Verification</h1>
+                    <p class="hero-desc">
+                        Verify the authenticity of academic and professional certificates using blockchain
+                        technology, even without an Internet connection.
+                    </p>
+                    <div class="hero-actions">
+                        <a href="/verify" class="btn btn-primary" id="btn-verify-hero">Verify Certificate</a>
+                        <a href="/issue" class="btn btn-secondary" id="btn-issue-hero">Issue Certificate</a>
+                    </div>
+                    <div class="hero-info-row">
+                        <div class="hero-info-item">
+                            <span class="hero-info-icon">&#128274;</span>
+                            <span>Tamper-Proof</span>
+                        </div>
+                        <div class="hero-info-item">
+                            <span class="hero-info-icon">&#128246;</span>
+                            <span>Works Offline</span>
+                        </div>
+                        <div class="hero-info-item">
+                            <span class="hero-info-icon">&#9989;</span>
+                            <span>Instant Verification</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-visual" aria-hidden="true">
+                    <div class="cert-card">
+                        <div class="cert-card-header">
+                            <span class="cert-dot green"></span>
+                            <span class="cert-dot yellow"></span>
+                            <span class="cert-dot red"></span>
+                            <span class="cert-card-label">Certificate Record</span>
+                        </div>
+                        <div class="cert-card-body">
+                            <div class="cert-field"><span class="cert-label">ID</span><span class="cert-value mono">CERT-2024-0087</span></div>
+                            <div class="cert-field"><span class="cert-label">Holder</span><span class="cert-value">Arjun Sharma</span></div>
+                            <div class="cert-field"><span class="cert-label">Course</span><span class="cert-value">B.Tech CSE</span></div>
+                            <div class="cert-field"><span class="cert-label">Institution</span><span class="cert-value">State University</span></div>
+                            <div class="cert-field"><span class="cert-label">Hash</span><span class="cert-value mono hash-value">3a7f…d92e</span></div>
+                            <div class="cert-status-badge valid">&#10003; Verified on Blockchain</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== FEATURES SECTION ========== -->
+        <section class="features" id="features">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">Key Features</h2>
+                    <p class="section-sub">A complete certificate lifecycle management system built on blockchain principles.</p>
+                </div>
+                <div class="features-grid">
+
+                    <div class="feature-card" id="feature-blockchain">
+                        <div class="feature-icon">&#128279;</div>
+                        <h3 class="feature-title">Blockchain Verification</h3>
+                        <p class="feature-desc">
+                            Each certificate is hashed and stored on a local blockchain, ensuring
+                            tamper-proof records that cannot be altered without detection.
+                        </p>
+                    </div>
+
+                    <div class="feature-card" id="feature-offline">
+                        <div class="feature-icon">&#128246;</div>
+                        <h3 class="feature-title">Offline Verification</h3>
+                        <p class="feature-desc">
+                            Verify certificates without an active Internet connection using
+                            locally cached blockchain data and embedded QR codes.
+                        </p>
+                    </div>
+
+                    <div class="feature-card" id="feature-qr">
+                        <div class="feature-icon">&#9638;</div>
+                        <h3 class="feature-title">QR Code Verification</h3>
+                        <p class="feature-desc">
+                            Every certificate carries a unique QR code encoding its blockchain
+                            hash and digital signature for instant mobile verification.
+                        </p>
+                    </div>
+
+                    <div class="feature-card" id="feature-signature">
+                        <div class="feature-icon">&#9999;</div>
+                        <h3 class="feature-title">Digital Signatures</h3>
+                        <p class="feature-desc">
+                            RSA-based digital signatures authenticate the issuing institution,
+                            proving the certificate was genuinely issued and not forged.
+                        </p>
+                    </div>
+
+                    <div class="feature-card" id="feature-revocation">
+                        <div class="feature-icon">&#128683;</div>
+                        <h3 class="feature-title">Certificate Revocation</h3>
+                        <p class="feature-desc">
+                            Institutions can revoke invalid or fraudulent certificates.
+                            Revocation status is recorded on the blockchain for transparency.
+                        </p>
+                    </div>
+
+                    <div class="feature-card" id="feature-audit">
+                        <div class="feature-icon">&#128203;</div>
+                        <h3 class="feature-title">Audit Trail</h3>
+                        <p class="feature-desc">
+                            Every action — issuance, verification, and revocation — is logged
+                            with timestamps, providing a complete and immutable audit history.
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== HOW IT WORKS SECTION ========== -->
+        <section class="how-it-works" id="how-it-works">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">How It Works</h2>
+                    <p class="section-sub">Three simple steps to issue and verify tamper-proof certificates.</p>
+                </div>
+                <div class="steps-row">
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <h3 class="step-title">Issue Certificate</h3>
+                        <p class="step-desc">Institution fills in certificate details. The system generates a SHA-256 hash and records it on the local blockchain.</p>
+                    </div>
+                    <div class="step-arrow" aria-hidden="true">&#8594;</div>
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <h3 class="step-title">Generate QR Code</h3>
+                        <p class="step-desc">A unique QR code embedding the certificate ID, blockchain hash, and digital signature is generated and printed on the certificate.</p>
+                    </div>
+                    <div class="step-arrow" aria-hidden="true">&#8594;</div>
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <h3 class="step-title">Verify Anytime</h3>
+                        <p class="step-desc">Scan the QR code or enter the certificate ID. The system checks the local blockchain — no Internet required.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== CALL TO ACTION ========== -->
+        <section class="cta-section" id="cta">
+            <div class="container cta-inner">
+                <h2 class="cta-title">Ready to get started?</h2>
+                <p class="cta-desc">Issue your first blockchain-backed certificate or verify an existing one.</p>
+                <div class="cta-actions">
+                    <a href="/verify" class="btn btn-primary" id="btn-verify-cta">Verify Certificate</a>
+                    <a href="/issue" class="btn btn-secondary" id="btn-issue-cta">Issue Certificate</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="site-footer" id="site-footer">
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <span class="brand-icon">&#128196;</span>
+                <span>Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <p class="footer-sub">Java Project</p>
+            <p class="footer-copy">&copy; 2024 Certificate Verification System. College Project Demonstration.</p>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js}"></script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+package com.certificateverification.model;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+/**
+ * Entity representing an academic or professional certificate.
+ * Day 1: Basic model structure - full implementation in Day 2+.
+ */
+@Entity
+@Table(name = "certificates")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Certificate {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    /** Unique certificate identifier (UUID) */
+    @Column(name = "certificate_id", nullable = false, unique = true)
+    private String certificateId;
+
+    /** Full name of the certificate holder */
+    @Column(name = "holder_name", nullable = false)
+    private String holderName;
+
+    /** Name of the issuing institution */
+    @Column(name = "institution_name", nullable = false)
+    private String institutionName;
+
+    /** Title/name of the course or degree */
+    @Column(name = "course_name", nullable = false)
+    private String courseName;
+
+    /** Date the certificate was issued */
+    @Column(name = "issue_date", nullable = false)
+    private LocalDateTime issueDate;
+
+    /**
+     * SHA-256 hash of the certificate data stored on the blockchain.
+     * Used for integrity verification.
+     */
+    @Column(name = "blockchain_hash", length = 64)
+    private String blockchainHash;
+
+    /**
+     * Digital signature of the certificate (Base64-encoded).
+     * Used for authenticity verification.
+     */
+    @Column(name = "digital_signature", columnDefinition = "TEXT")
+    private String digitalSignature;
+
+    /**
+     * QR code data (Base64-encoded PNG image).
+     * Enables offline verification.
+     */
+    @Column(name = "qr_code_data", columnDefinition = "TEXT")
+    private String qrCodeData;
+
+    /** Whether this certificate has been revoked */
+    @Column(name = "is_revoked", nullable = false)
+    private boolean revoked = false;
+
+    /** Timestamp of record creation */
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    /** Timestamp of last update */
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+}

@@ -1,0 +1,42 @@
+# Compiled class files
+*.class
+*.jar
+*.war
+*.ear
+
+# Maven build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.eclipse/
+.project
+.classpath
+.settings/
+*.launch
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Spring Boot DevTools
+.spring-boot-devtools.properties
+
+# Log files
+*.log
+logs/
+
+# Environment / secrets
+.env
+*.env.local

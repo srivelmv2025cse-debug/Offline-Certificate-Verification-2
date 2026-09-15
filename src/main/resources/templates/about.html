@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="About the Offline Certificate Verification Using Blockchain project.">
+    <title th:text="${pageTitle}">About - Certificate Verification</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+    <!-- ========== HEADER / NAVIGATION ========== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon">&#128196;</span>
+                <span class="brand-name">Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <nav class="nav" id="main-nav" aria-label="Main navigation">
+                <ul class="nav-list">
+                    <li><a href="/" class="nav-link" id="nav-home">Home</a></li>
+                    <li><a href="/verify" class="nav-link" id="nav-verify">Verify Certificate</a></li>
+                    <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
+                    <li><a href="/about" class="nav-link active" id="nav-about">About</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-hero">
+            <div class="container">
+                <h1 class="page-title">About This Project</h1>
+                <p class="page-sub">A college project exploring blockchain-based certificate verification.</p>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="container content-narrow">
+                <div class="info-card">
+                    <h2>Project Objective</h2>
+                    <p>
+                        This project demonstrates how blockchain technology can be applied to issue and verify
+                        academic and professional certificates in a tamper-proof manner, with the unique ability
+                        to perform verification entirely offline.
+                    </p>
+                </div>
+
+                <div class="info-card">
+                    <h2>Technologies Used</h2>
+                    <ul class="tech-list">
+                        <li><strong>Java 21</strong> — Core programming language</li>
+                        <li><strong>Spring Boot 3</strong> — Backend web framework</li>
+                        <li><strong>SQLite</strong> — Lightweight embedded database</li>
+                        <li><strong>HTML / CSS / JavaScript</strong> — Frontend</li>
+                        <li><strong>ZXing</strong> — QR code generation and scanning</li>
+                        <li><strong>RSA Digital Signatures</strong> — Certificate authenticity</li>
+                        <li><strong>SHA-256 Hashing</strong> — Blockchain integrity</li>
+                        <li><strong>Maven</strong> — Build and dependency management</li>
+                    </ul>
+                </div>
+
+                <div class="info-card">
+                    <h2>Current Status</h2>
+                    <p>
+                        <strong>Day 1:</strong> Project structure, database configuration, package layout, and homepage are complete.
+                        Core blockchain, QR, and verification features will be implemented in subsequent days.
+                    </p>
+                </div>
+
+                <div class="cta-actions" style="margin-top: 2rem;">
+                    <a href="/" class="btn btn-secondary" id="btn-back-home">Back to Home</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <span class="brand-icon">&#128196;</span>
+                <span>Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <p class="footer-sub">Java Project</p>
+            <p class="footer-copy">&copy; 2024 Certificate Verification System. College Project Demonstration.</p>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js}"></script>
+</body>
+</html>
