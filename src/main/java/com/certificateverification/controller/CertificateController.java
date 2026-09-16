@@ -1,42 +1,105 @@
 package com.certificateverification.controller;
 
+import com.certificateverification.model.Certificate;
+import com.certificateverification.service.CertificateService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * REST API controller for certificate operations.
- * Day 1: Placeholder endpoints - to be implemented in Day 2+.
+ * Day 2: Implementation of Certificate Issuing and Management REST APIs.
  */
 @RestController
 @RequestMapping("/api/certificates")
 public class CertificateController {
 
-    /**
-     * Placeholder: Verify a certificate by its ID or hash.
-     * To be fully implemented in Day 2.
-     */
-    @GetMapping("/verify")
-    public ResponseEntity<Map<String, String>> verifyCertificate() {
-        return ResponseEntity.ok(Map.of(
-                "status", "placeholder",
-                "message", "Certificate verification will be implemented in Day 2."
-        ));
+    private final CertificateService certificateService;
+
+    @Autowired
+    public CertificateController(CertificateService certificateService) {
+        this.certificateService = certificateService;
     }
 
     /**
-     * Placeholder: Issue a new certificate.
-     * To be fully implemented in Day 2.
+     * Get all certificates.
+     *
+     * @return list of certificates
      */
-    @GetMapping("/issue")
-    public ResponseEntity<Map<String, String>> issueCertificate() {
-        return ResponseEntity.ok(Map.of(
-                "status", "placeholder",
-                "message", "Certificate issuance will be implemented in Day 2."
-        ));
+    @GetMapping
+    public ResponseEntity<List<Certificate>> getAllCertificates() {
+        List<Certificate> certificates = certificateService.getAllCertificates();
+        return ResponseEntity.ok(certificates);
+    }
+
+    /**
+     * Get a specific certificate by its certificate ID.
+     *
+     * @param certificateId unique certificate identifier
+     * @return certificate if found, or 404 Not Found
+     */
+    @GetMapping("/{certificateId}")
+    public ResponseEntity<?> getCertificateById(@PathVariable("certificateId") String certificateId) {
+        Optional<Certificate> certificate = certificateService.getCertificateById(certificateId);
+        if (certificate.isPresent()) {
+            return ResponseEntity.ok(certificate.get());
+        } else {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Certificate with ID '" + certificateId + "' not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+        }
+    }
+
+    /**
+     * Issue a new certificate via REST API.
+     *
+     * @param certificate Certificate object from request body
+     * @return 201 Created with saved certificate, or 400 Bad Request on error
+     */
+    @PostMapping
+    public ResponseEntity<?> issueCertificate(@RequestBody Certificate certificate) {
+        try {
+            Certificate issued = certificateService.issueCertificate(certificate);
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Certificate issued successfully.");
+            response.put("certificate", issued);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "An unexpected error occurred: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    /**
+     * Revoke a certificate by its certificate ID.
+     *
+     * @param certificateId unique certificate identifier
+     * @return 200 OK with revoked certificate, or 400 Bad Request
+     */
+    @PostMapping("/{certificateId}/revoke")
+    public ResponseEntity<?> revokeCertificate(@PathVariable("certificateId") String certificateId) {
+        try {
+            Certificate revoked = certificateService.revokeCertificate(certificateId);
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Certificate revoked successfully.");
+            response.put("certificate", revoked);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+        }
     }
 
     /**
@@ -47,7 +110,7 @@ public class CertificateController {
         return ResponseEntity.ok(Map.of(
                 "status", "UP",
                 "service", "Certificate Verification API",
-                "day", "1 - Project Setup"
+                "day", "2 - Certificate Issuing & Management"
         ));
     }
 }

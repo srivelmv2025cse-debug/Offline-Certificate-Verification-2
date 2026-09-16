@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Issue a new offline verifiable certificate.">
+    <title th:text="${pageTitle}">Issue Certificate</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: var(--color-surface);
+            padding: var(--spacing-xl);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+        }
+        .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+        .form-label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+        .form-label .required {
+            color: #d32f2f;
+        }
+        .form-control {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 0.95rem;
+            background-color: #ffffff;
+            color: var(--color-text-primary);
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: var(--color-accent);
+        }
+        .error-message {
+            color: #d32f2f;
+            background-color: #fde0e0;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-md);
+            border: 1px solid #f8b4b4;
+            font-size: 0.9rem;
+        }
+        .form-hint {
+            display: block;
+            margin-top: var(--spacing-xs);
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+        }
+        .btn-submit {
+            width: 100%;
+            margin-top: var(--spacing-md);
+        }
+        .form-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-md);
+        }
+        .form-actions .btn {
+            flex: 1;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========== HEADER / NAVIGATION ========== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon">&#128196;</span>
+                <span class="brand-name">Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <nav class="nav" id="main-nav" aria-label="Main navigation">
+                <ul class="nav-list">
+                    <li><a href="/" class="nav-link" id="nav-home">Home</a></li>
+                    <li><a href="/issue" class="nav-link active" id="nav-issue">Issue Certificate</a></li>
+                    <li><a href="/certificates" class="nav-link" id="nav-certificates">Manage Certificates</a></li>
+                    <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-hero">
+            <div class="container">
+                <h1 class="page-title">Issue Certificate</h1>
+                <p class="page-sub">Enter the required details to issue a new verifiable certificate.</p>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="container">
+                <div class="form-container">
+                    
+                    <div th:if="${errorMessage}" class="error-message" id="error-box" th:text="${errorMessage}"></div>
+                    
+                    <form th:action="@{/issue}" th:object="${certificate}" method="post" id="issueForm" onsubmit="return validateDates();">
+                        
+                        <div class="form-group">
+                            <label for="certificateId" class="form-label">Certificate ID <span class="required">*</span></label>
+                            <input type="text" id="certificateId" name="certificateId" th:field="*{certificateId}" class="form-control" required placeholder="e.g. CERT-2024-001">
+                            <small class="form-hint">Unique identifier for this certificate.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="studentName" class="form-label">Student Name <span class="required">*</span></label>
+                            <input type="text" id="studentName" name="studentName" th:field="*{studentName}" class="form-control" required placeholder="e.g. John Doe">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="courseName" class="form-label">Course Name <span class="required">*</span></label>
+                            <input type="text" id="courseName" name="courseName" th:field="*{courseName}" class="form-control" required placeholder="e.g. B.Tech Computer Science">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="institutionName" class="form-label">Institution Name <span class="required">*</span></label>
+                            <input type="text" id="institutionName" name="institutionName" th:field="*{institutionName}" class="form-control" required placeholder="e.g. State University">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="certificateType" class="form-label">Certificate Type <span class="required">*</span></label>
+                            <input type="text" id="certificateType" name="certificateType" th:field="*{certificateType}" class="form-control" list="certificateTypesList" required placeholder="e.g. Degree">
+                            <datalist id="certificateTypesList">
+                                <option value="Degree">
+                                <option value="Diploma">
+                                <option value="Course Completion">
+                                <option value="Participation">
+                                <option value="Professional Certification">
+                            </datalist>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="issueDate" class="form-label">Issue Date <span class="required">*</span></label>
+                            <input type="date" id="issueDate" name="issueDate" th:field="*{issueDate}" class="form-control" required onchange="onIssueDateChange()">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="expiryDate" class="form-label">Expiry Date (Optional)</label>
+                            <input type="date" id="expiryDate" name="expiryDate" th:field="*{expiryDate}" class="form-control">
+                            <small class="form-hint">Leave blank if the certificate does not expire.</small>
+                        </div>
+
+                        <div class="form-actions">
+                            <a href="/certificates" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary" id="btn-submit-cert">Issue Certificate</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <span class="brand-icon">&#128196;</span>
+                <span>Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <p class="footer-sub">Java Project</p>
+            <p class="footer-copy">&copy; 2024 Certificate Verification System. College Project Demonstration.</p>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js}"></script>
+    <script>
+        function onIssueDateChange() {
+            var issueDateInput = document.getElementById('issueDate');
+            var expiryDateInput = document.getElementById('expiryDate');
+            if (issueDateInput.value) {
+                expiryDateInput.min = issueDateInput.value;
+            }
+        }
+
+        function validateDates() {
+            var issueDate = document.getElementById('issueDate').value;
+            var expiryDate = document.getElementById('expiryDate').value;
+            if (issueDate && expiryDate) {
+                if (new Date(expiryDate) < new Date(issueDate)) {
+                    alert('Expiry date cannot be before issue date.');
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Initialize min date if issueDate is already populated
+        document.addEventListener('DOMContentLoaded', function() {
+            onIssueDateChange();
+        });
+    </script>
+</body>
+</html>

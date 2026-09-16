@@ -104,6 +104,29 @@ certificate-verification/
 
 ---
 
+## Day 2 Features (Completed)
+
+- [x] **Certificate Model**: Complete entity containing `id`, `certificateId`, `studentName`, `courseName`, `institutionName`, `certificateType`, `issueDate`, `expiryDate`, `status`, and `createdAt`.
+- [x] **SQLite Database Persistence**: Hibernate table mapping for `certificates` with automatic timestamp lifecycle management.
+- [x] **Certificate Repository**: `CertificateRepository` providing CRUD queries (`findByCertificateId`, `existsByCertificateId`, `findAllByOrderByCreatedAtDesc`).
+- [x] **Certificate Service**: `CertificateService` with strict validation:
+  - Required fields cannot be empty.
+  - Certificate ID uniqueness check.
+  - Issue date validation.
+  - Expiry date cannot be before issue date.
+- [x] **Issue Certificate Page (`/issue`)**: Clean light UI form with fields for ID, Student Name, Course, Institution, Type, Issue Date, Expiry Date.
+- [x] **Certificate Details Page (`/certificate/{id}`)**: Dedicated details view with success notification: *"Certificate issued successfully."*
+- [x] **Certificate Management Page (`/certificates`)**: Overview table listing all issued certificates with status badges (ISSUED, REVOKED), direct view action, and revocation capabilities.
+- [x] **REST APIs**: Full JSON API support under `/api/certificates`:
+  - `POST /api/certificates` — Issue a new certificate
+  - `GET /api/certificates` — Retrieve all certificates
+  - `GET /api/certificates/{certificateId}` — Retrieve specific certificate details
+  - `POST /api/certificates/{certificateId}/revoke` — Revoke certificate
+  - `GET /api/certificates/health` — Health check endpoint
+- [x] **Integration & Unit Tests**: Full test coverage verifying models, services, form submission, validation constraints, and REST controllers.
+
+---
+
 ## How to Run
 
 ### Prerequisites
@@ -128,26 +151,36 @@ mvn spring-boot:run
 
 The application will start on **http://localhost:8080**
 
-### Available Pages (Day 1)
+### Available Pages (Day 2)
 
 | URL | Description |
 |---|---|
 | `http://localhost:8080/` | Homepage |
+| `http://localhost:8080/issue` | Issue Certificate form |
+| `http://localhost:8080/certificates` | Certificate Management (All Certificates) |
+| `http://localhost:8080/certificate/{id}` | Certificate Details page |
 | `http://localhost:8080/about` | About page |
-| `http://localhost:8080/api/certificates/health` | API health check (JSON) |
+
+### Available REST APIs (Day 2)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/certificates` | List all certificates |
+| `POST` | `/api/certificates` | Issue a new certificate (JSON body) |
+| `GET` | `/api/certificates/{id}` | Get certificate by Certificate ID |
+| `POST` | `/api/certificates/{id}/revoke` | Revoke certificate |
+| `GET` | `/api/certificates/health` | API health check |
 
 ---
 
-## Planned Features (Day 2+)
+## Planned Features (Day 3+)
 
 - [ ] SHA-256 certificate hashing
 - [ ] Local blockchain with proof-of-work
-- [ ] Certificate issuance form
 - [ ] Certificate verification page
 - [ ] RSA digital signatures
 - [ ] QR code generation with ZXing
 - [ ] Offline verification via QR scan
-- [ ] Certificate revocation
 - [ ] Audit trail dashboard
 - [ ] Blockchain integrity checker
 
@@ -158,6 +191,7 @@ The application will start on **http://localhost:8080**
 | Commit | Description |
 |---|---|
 | `Day 1` | Project setup and basic UI |
+| `Day 2` | Certificate issuing module |
 
 ---
 

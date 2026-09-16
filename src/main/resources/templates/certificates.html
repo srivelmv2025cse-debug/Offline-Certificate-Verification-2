@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Manage issued certificates in the certificate verification system.">
+    <title th:text="${pageTitle}">Certificate Management</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .management-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .management-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+        }
+        .cert-table-card {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            overflow-x: auto;
+        }
+        .cert-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+        .cert-table th {
+            background-color: var(--color-surface-2);
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--color-border);
+            white-space: nowrap;
+        }
+        .cert-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--color-border-light);
+            vertical-align: middle;
+        }
+        .cert-table tr:last-child td {
+            border-bottom: none;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .status-badge.issued {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        .status-badge.revoked {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        .table-actions {
+            display: flex;
+            gap: var(--spacing-xs);
+            align-items: center;
+        }
+        .btn-table {
+            padding: 0.3rem 0.65rem;
+            font-size: 0.85rem;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .btn-table-view {
+            background-color: #ffffff;
+            border-color: var(--color-border);
+            color: var(--color-text-primary);
+        }
+        .btn-table-view:hover {
+            background-color: var(--color-surface-2);
+            text-decoration: none;
+        }
+        .btn-table-revoke {
+            background-color: #ffffff;
+            border-color: #ffcdd2;
+            color: #c62828;
+        }
+        .btn-table-revoke:hover {
+            background-color: #ffebee;
+            text-decoration: none;
+        }
+        .empty-state {
+            padding: var(--spacing-2xl);
+            text-align: center;
+            color: var(--color-text-secondary);
+        }
+        .empty-state p {
+            margin-bottom: var(--spacing-md);
+        }
+        .alert-success {
+            color: #2e7d32;
+            background-color: #e8f5e9;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-lg);
+            border: 1px solid #c8e6c9;
+        }
+        .alert-error {
+            color: #c62828;
+            background-color: #ffebee;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-lg);
+            border: 1px solid #ffcdd2;
+        }
+        .mono {
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========== HEADER / NAVIGATION ========== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon">&#128196;</span>
+                <span class="brand-name">Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <nav class="nav" id="main-nav" aria-label="Main navigation">
+                <ul class="nav-list">
+                    <li><a href="/" class="nav-link" id="nav-home">Home</a></li>
+                    <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
+                    <li><a href="/certificates" class="nav-link active" id="nav-certificates">Manage Certificates</a></li>
+                    <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-hero">
+            <div class="container">
+                <h1 class="page-title">Certificate Management</h1>
+                <p class="page-sub">View, inspect, and manage all issued certificates.</p>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="container management-container">
+
+                <div th:if="${successMessage}" class="alert-success" th:text="${successMessage}"></div>
+                <div th:if="${errorMessage}" class="alert-error" th:text="${errorMessage}"></div>
+
+                <div class="management-header">
+                    <div>
+                        <strong th:text="${#lists.size(certificates)}">0</strong> certificates total
+                    </div>
+                    <div>
+                        <a href="/issue" class="btn btn-primary">+ Issue New Certificate</a>
+                    </div>
+                </div>
+
+                <div class="cert-table-card">
+                    <div th:if="${#lists.isEmpty(certificates)}" class="empty-state">
+                        <p>No certificates have been issued yet.</p>
+                        <a href="/issue" class="btn btn-primary">Issue First Certificate</a>
+                    </div>
+
+                    <table th:if="${!#lists.isEmpty(certificates)}" class="cert-table">
+                        <thead>
+                            <tr>
+                                <th>Certificate ID</th>
+                                <th>Student Name</th>
+                                <th>Course</th>
+                                <th>Institution</th>
+                                <th>Type</th>
+                                <th>Issue Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="cert : ${certificates}">
+                                <td class="mono" th:text="${cert.certificateId}">CERT-001</td>
+                                <td th:text="${cert.studentName}">John Doe</td>
+                                <td th:text="${cert.courseName}">Computer Science</td>
+                                <td th:text="${cert.institutionName}">State University</td>
+                                <td th:text="${cert.certificateType}">Degree</td>
+                                <td th:text="${cert.issueDate}">2024-01-15</td>
+                                <td>
+                                    <span th:class="'status-badge ' + ${#strings.toLowerCase(cert.status)}" th:text="${cert.status}">ISSUED</span>
+                                </td>
+                                <td>
+                                    <div class="table-actions">
+                                        <a th:href="@{'/certificate/' + ${cert.certificateId}}" class="btn-table btn-table-view">View</a>
+                                        <form th:if="${cert.status != 'REVOKED'}" th:action="@{'/certificates/' + ${cert.certificateId} + '/revoke'}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to revoke this certificate?');">
+                                            <button type="submit" class="btn-table btn-table-revoke">Revoke</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <span class="brand-icon">&#128196;</span>
+                <span>Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <p class="footer-sub">Java Project</p>
+            <p class="footer-copy">&copy; 2024 Certificate Verification System. College Project Demonstration.</p>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js}"></script>
+</body>
+</html>

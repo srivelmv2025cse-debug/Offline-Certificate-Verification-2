@@ -5,11 +5,12 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
  * Entity representing an academic or professional certificate.
- * Day 1: Basic model structure - full implementation in Day 2+.
+ * Day 2: Added studentName, certificateType, expiryDate, status.
  */
 @Entity
 @Table(name = "certificates")
@@ -26,9 +27,9 @@ public class Certificate {
     @Column(name = "certificate_id", nullable = false, unique = true)
     private String certificateId;
 
-    /** Full name of the certificate holder */
-    @Column(name = "holder_name", nullable = false)
-    private String holderName;
+    /** Full name of the certificate holder (student) */
+    @Column(name = "student_name", nullable = false)
+    private String studentName;
 
     /** Name of the issuing institution */
     @Column(name = "institution_name", nullable = false)
@@ -38,9 +39,21 @@ public class Certificate {
     @Column(name = "course_name", nullable = false)
     private String courseName;
 
+    /** Type of certificate (e.g., Degree, Diploma, Participation) */
+    @Column(name = "certificate_type", nullable = false)
+    private String certificateType;
+
     /** Date the certificate was issued */
     @Column(name = "issue_date", nullable = false)
-    private LocalDateTime issueDate;
+    private LocalDate issueDate;
+
+    /** Date the certificate expires (if applicable) */
+    @Column(name = "expiry_date")
+    private LocalDate expiryDate;
+
+    /** Status of the certificate (e.g., ISSUED, REVOKED) */
+    @Column(name = "status", nullable = false)
+    private String status = "ISSUED";
 
     /**
      * SHA-256 hash of the certificate data stored on the blockchain.

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle}">Error</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .error-container {
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+            background-color: var(--color-surface);
+            padding: var(--spacing-2xl);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+        }
+        .error-icon {
+            font-size: 3rem;
+            margin-bottom: var(--spacing-md);
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon">&#128196;</span>
+                <span class="brand-name">Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <nav class="nav" id="main-nav">
+                <ul class="nav-list">
+                    <li><a href="/" class="nav-link">Home</a></li>
+                    <li><a href="/issue" class="nav-link">Issue Certificate</a></li>
+                    <li><a href="/certificates" class="nav-link">Manage Certificates</a></li>
+                    <li><a href="/about" class="nav-link">About</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="content-section" style="padding-top: var(--spacing-2xl);">
+            <div class="container">
+                <div class="error-container">
+                    <div class="error-icon">&#9888;</div>
+                    <h2 class="section-title" th:text="${pageTitle}">Error</h2>
+                    <p class="section-sub" th:text="${errorMessage}">Something went wrong.</p>
+                    <div class="cta-actions" style="margin-top: var(--spacing-xl);">
+                        <a href="/" class="btn btn-primary">Return Home</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

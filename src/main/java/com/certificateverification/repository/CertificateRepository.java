@@ -37,4 +37,11 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
      * @return true if the certificate exists
      */
     boolean existsByCertificateId(String certificateId);
+
+    /**
+     * Retrieve all certificates ordered by creation date descending.
+     *
+     * @return list of certificates
+     */
+    java.util.List<Certificate> findAllByOrderByCreatedAtDesc();
 }
