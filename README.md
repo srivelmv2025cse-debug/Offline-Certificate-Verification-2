@@ -127,6 +127,38 @@ certificate-verification/
 
 ---
 
+---
+
+## Day 3 Features (Completed)
+
+- [x] **Custom Educational Blockchain in Java**: Built from scratch using core Java (no cryptocurrency or external blockchain dependencies).
+- [x] **Block Model**: Complete `Block` class containing `index`, `timestamp`, `certificateId`, `certificateHash`, `previousHash`, and `hash`.
+- [x] **Java MessageDigest Cryptography**: SHA-256 calculation implemented using standard `java.security.MessageDigest` in `HashUtil`.
+- [x] **Blockchain Class (`Blockchain.java`)**:
+  - Automatically initializes and creates the **Genesis Block** (Block #0).
+  - Calculates SHA-256 hashes linking each block to the previous block's hash.
+  - Adds new certificate blocks with sequential indexing.
+  - Complete chain validation (`isChainValid()`) verifying cryptographic linkage and integrity.
+  - Detects modified or tampered block contents and broken links.
+  - Persistent SQLite storage via `BlockRepository`.
+- [x] **Automated Certificate Anchoring on Issuance**:
+  1. Generates deterministic canonical representation of certificate data.
+  2. Calculates SHA-256 certificate hash.
+  3. Creates a new blockchain block linked to the previous block.
+  4. Stores certificate hash in the block and updates `blockchainHash` on the certificate entity.
+- [x] **Blockchain Explorer Web UI (`/blockchain`)**:
+  - Displays all blocks (Block number, Certificate ID, Certificate hash, Previous hash, Current hash, Timestamp).
+  - Interactive **"Validate Blockchain"** button.
+  - Real-time display of **"Blockchain Valid"** or **"Blockchain Tampered"**.
+  - Clean, light, professional UI with monospace hash rendering.
+- [x] **Blockchain REST APIs**:
+  - `POST /api/blockchain/add` — Add a new block to the blockchain
+  - `GET /api/blockchain` — Retrieve full blockchain blocks array
+  - `GET /api/blockchain/validate` — Validate entire blockchain integrity
+- [x] **Integration & Tamper Detection Tests**: 16 passing tests covering hashing, genesis creation, block linkage, tampering detection, and controller endpoints.
+
+---
+
 ## How to Run
 
 ### Prerequisites
@@ -151,38 +183,39 @@ mvn spring-boot:run
 
 The application will start on **http://localhost:8080**
 
-### Available Pages (Day 2)
+### Available Pages (Day 3)
 
 | URL | Description |
 |---|---|
 | `http://localhost:8080/` | Homepage |
 | `http://localhost:8080/issue` | Issue Certificate form |
 | `http://localhost:8080/certificates` | Certificate Management (All Certificates) |
-| `http://localhost:8080/certificate/{id}` | Certificate Details page |
+| `http://localhost:8080/certificate/{id}` | Certificate Details page (includes Blockchain Hash) |
+| `http://localhost:8080/blockchain` | Blockchain Explorer & Chain Validator |
 | `http://localhost:8080/about` | About page |
 
-### Available REST APIs (Day 2)
+### Available REST APIs (Day 3)
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/certificates` | List all certificates |
-| `POST` | `/api/certificates` | Issue a new certificate (JSON body) |
+| `POST` | `/api/certificates` | Issue a certificate (automatically added to blockchain) |
 | `GET` | `/api/certificates/{id}` | Get certificate by Certificate ID |
 | `POST` | `/api/certificates/{id}/revoke` | Revoke certificate |
-| `GET` | `/api/certificates/health` | API health check |
+| `GET` | `/api/certificates/health` | Certificate API health check |
+| `GET` | `/api/blockchain` | Get all blockchain blocks |
+| `POST` | `/api/blockchain/add` | Add a new block to blockchain |
+| `GET` | `/api/blockchain/validate` | Validate blockchain integrity |
 
 ---
 
-## Planned Features (Day 3+)
+## Planned Features (Day 4+)
 
-- [ ] SHA-256 certificate hashing
-- [ ] Local blockchain with proof-of-work
-- [ ] Certificate verification page
+- [ ] Certificate verification page (online/offline)
 - [ ] RSA digital signatures
 - [ ] QR code generation with ZXing
 - [ ] Offline verification via QR scan
 - [ ] Audit trail dashboard
-- [ ] Blockchain integrity checker
 
 ---
 
@@ -192,6 +225,7 @@ The application will start on **http://localhost:8080**
 |---|---|
 | `Day 1` | Project setup and basic UI |
 | `Day 2` | Certificate issuing module |
+| `Day 3` | Java blockchain implementation |
 
 ---
 

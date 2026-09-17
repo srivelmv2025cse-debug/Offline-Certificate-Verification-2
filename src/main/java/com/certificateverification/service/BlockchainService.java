@@ -1,47 +1,94 @@
 package com.certificateverification.service;
 
+import com.certificateverification.blockchain.Blockchain;
+import com.certificateverification.blockchain.HashUtil;
+import com.certificateverification.model.Block;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.Optional;
+
 /**
- * Service for blockchain operations: adding blocks, verifying chain integrity.
- * Day 1: Placeholder service - full implementation in Day 2+.
+ * Service for blockchain operations: adding blocks, querying blocks,
+ * and validating chain integrity.
  */
 @Service
 public class BlockchainService {
 
     private static final Logger logger = LoggerFactory.getLogger(BlockchainService.class);
 
-    /**
-     * Placeholder: Add a new block to the local blockchain.
-     * Full implementation in Day 2.
-     *
-     * @param data the data to store in the block
-     */
-    public void addBlock(String data) {
-        logger.info("BlockchainService.addBlock() - placeholder for Day 2. Data: {}", data);
+    private final Blockchain blockchain;
+
+    @Autowired
+    public BlockchainService(Blockchain blockchain) {
+        this.blockchain = blockchain;
     }
 
     /**
-     * Placeholder: Verify the integrity of the entire blockchain.
-     * Full implementation in Day 2.
+     * Add a new certificate block to the local blockchain.
      *
-     * @return true if the chain is valid (always true in placeholder)
+     * @param certificateId  unique certificate ID
+     * @param certificateHash SHA-256 hash of the canonical certificate
+     * @return created Block
+     */
+    public Block addCertificateBlock(String certificateId, String certificateHash) {
+        logger.info("BlockchainService: Adding block for certificate {}", certificateId);
+        return blockchain.addCertificateBlock(certificateId, certificateHash);
+    }
+
+    /**
+     * Add a block by hashing arbitrary data string.
+     *
+     * @param data arbitrary data
+     * @return created Block
+     */
+    public Block addBlock(String data) {
+        String hash = HashUtil.sha256(data);
+        String certId = "DATA-" + System.currentTimeMillis();
+        return blockchain.addCertificateBlock(certId, hash);
+    }
+
+    /**
+     * Verify the integrity of the entire blockchain.
+     *
+     * @return true if the chain is valid and untampered
      */
     public boolean isChainValid() {
-        logger.info("BlockchainService.isChainValid() - placeholder for Day 2");
-        return true;
+        return blockchain.isChainValid();
     }
 
     /**
-     * Placeholder: Get the hash of the last block in the chain.
-     * Full implementation in Day 2.
+     * Get the hash of the last block in the chain.
      *
-     * @return hash string (placeholder value)
+     * @return hash string
      */
     public String getLastBlockHash() {
-        logger.info("BlockchainService.getLastBlockHash() - placeholder for Day 2");
-        return "0000000000000000000000000000000000000000000000000000000000000000";
+        return blockchain.getLatestBlock().getHash();
+    }
+
+    /**
+     * Get all blocks in the blockchain.
+     *
+     * @return list of blocks in chronological order
+     */
+    public List<Block> getAllBlocks() {
+        return blockchain.getChain();
+    }
+
+    /**
+     * Total number of blocks.
+     */
+    public int getBlockCount() {
+        return blockchain.getChainSize();
+    }
+
+    /**
+     * Find a block for a given certificate.
+     */
+    public Optional<Block> getBlockByCertificateId(String certificateId) {
+        return blockchain.getBlockByCertificateId(certificateId);
     }
 }

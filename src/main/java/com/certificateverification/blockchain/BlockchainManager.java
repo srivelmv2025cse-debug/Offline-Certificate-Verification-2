@@ -1,52 +1,70 @@
 package com.certificateverification.blockchain;
 
+import com.certificateverification.model.Block;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 /**
- * Core blockchain implementation for the certificate verification system.
- * Manages the local chain of certificate transaction blocks.
- *
- * <p>Day 1: Placeholder - SHA-256 hashing, proof-of-work, and chain
- * validation will be implemented in Day 2.</p>
+ * Manager component exposing blockchain operations.
+ * Delegates to the core Blockchain instance.
  */
 @Component
 public class BlockchainManager {
 
     private static final Logger logger = LoggerFactory.getLogger(BlockchainManager.class);
 
+    private final Blockchain blockchain;
+
+    @Autowired
+    public BlockchainManager(Blockchain blockchain) {
+        this.blockchain = blockchain;
+    }
+
     /**
-     * Placeholder: Compute SHA-256 hash of input data.
-     * Full implementation in Day 2.
+     * Compute SHA-256 hash of input data using Java MessageDigest.
      *
      * @param data the input string to hash
-     * @return hex-encoded SHA-256 hash (placeholder)
+     * @return hex-encoded SHA-256 hash
      */
     public String computeHash(String data) {
-        logger.debug("BlockchainManager.computeHash() - placeholder for Day 2");
-        return "placeholder-hash";
+        return HashUtil.sha256(data);
     }
 
     /**
-     * Placeholder: Mine a new block with proof-of-work.
-     * Full implementation in Day 2.
+     * Add a new certificate block to the blockchain.
      *
-     * @param previousHash hash of the previous block
-     * @param data         transaction data for the new block
+     * @param certificateId certificate ID
+     * @param certificateHash certificate SHA-256 hash
+     * @return the created block
      */
-    public void mineBlock(String previousHash, String data) {
-        logger.info("BlockchainManager.mineBlock() - placeholder for Day 2");
+    public Block addBlock(String certificateId, String certificateHash) {
+        return blockchain.addCertificateBlock(certificateId, certificateHash);
     }
 
     /**
-     * Placeholder: Validate the entire local blockchain.
-     * Full implementation in Day 2.
+     * Validate the entire local blockchain.
      *
-     * @return true if chain is valid (always true in placeholder)
+     * @return true if chain is valid and untampered
      */
     public boolean validateChain() {
-        logger.info("BlockchainManager.validateChain() - placeholder for Day 2");
-        return true;
+        return blockchain.isChainValid();
+    }
+
+    /**
+     * Get all blocks in the blockchain.
+     */
+    public List<Block> getChain() {
+        return blockchain.getChain();
+    }
+
+    /**
+     * Get the latest block.
+     */
+    public Block getLatestBlock() {
+        return blockchain.getLatestBlock();
     }
 }

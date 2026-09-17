@@ -21,10 +21,13 @@ import java.util.Optional;
 public class HomeController {
 
     private final CertificateService certificateService;
+    private final com.certificateverification.blockchain.Blockchain blockchain;
 
     @Autowired
-    public HomeController(CertificateService certificateService) {
+    public HomeController(CertificateService certificateService,
+                          com.certificateverification.blockchain.Blockchain blockchain) {
         this.certificateService = certificateService;
+        this.blockchain = blockchain;
     }
 
     @GetMapping("/")
@@ -89,5 +92,19 @@ public class HomeController {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/certificates";
+    }
+
+    @GetMapping("/blockchain")
+    public String showBlockchain(@org.springframework.web.bind.annotation.RequestParam(value = "validate", required = false) Boolean validate, Model model) {
+        model.addAttribute("pageTitle", "Blockchain Explorer");
+        model.addAttribute("blocks", blockchain.getChain());
+        model.addAttribute("totalBlocks", blockchain.getChainSize());
+        if (Boolean.TRUE.equals(validate)) {
+            boolean isValid = blockchain.isChainValid();
+            model.addAttribute("validationPerformed", true);
+            model.addAttribute("isValid", isValid);
+            model.addAttribute("validationMessage", isValid ? "Blockchain Valid" : "Blockchain Tampered");
+        }
+        return "blockchain";
     }
 }

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Inspect and validate the local blockchain for certificate verification.">
+    <title th:text="${pageTitle}">Blockchain Explorer</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .blockchain-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .blockchain-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md) var(--spacing-lg);
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+        }
+        .chain-stats {
+            display: flex;
+            gap: var(--spacing-lg);
+            align-items: center;
+        }
+        .stat-item {
+            font-size: 0.95rem;
+            color: var(--color-text-secondary);
+        }
+        .stat-item strong {
+            color: var(--color-text-primary);
+            font-size: 1.1rem;
+        }
+        .validation-banner {
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-lg);
+            font-weight: 600;
+            font-size: 1.05rem;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+        }
+        .validation-banner.valid {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        .validation-banner.tampered {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        .blocks-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+        }
+        .block-card {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        .block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--color-border-light);
+            flex-wrap: wrap;
+            gap: var(--spacing-xs);
+        }
+        .block-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+        .block-badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: var(--radius-sm);
+            background-color: var(--color-surface-2);
+            color: var(--color-text-secondary);
+            border: 1px solid var(--color-border);
+        }
+        .block-badge.genesis {
+            background-color: #e8f0fe;
+            color: #1a73e8;
+            border-color: #d2e3fc;
+        }
+        .block-time {
+            font-size: 0.85rem;
+            color: var(--color-text-muted);
+        }
+        .block-grid {
+            display: grid;
+            grid-template-columns: 160px 1fr;
+            row-gap: var(--spacing-sm);
+            column-gap: var(--spacing-md);
+            font-size: 0.9rem;
+            align-items: baseline;
+        }
+        .block-label {
+            font-weight: 600;
+            color: var(--color-text-secondary);
+        }
+        .block-value {
+            color: var(--color-text-primary);
+            word-break: break-all;
+        }
+        .mono {
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.85rem;
+            color: #1a1a1a;
+        }
+        .chain-connector {
+            text-align: center;
+            color: var(--color-text-muted);
+            font-size: 1.5rem;
+            line-height: 1;
+            user-select: none;
+        }
+        @media (max-width: 650px) {
+            .block-grid {
+                grid-template-columns: 1fr;
+                gap: 2px;
+            }
+            .block-label {
+                color: var(--color-text-muted);
+                font-size: 0.8rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .block-value {
+                margin-bottom: var(--spacing-xs);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========== HEADER / NAVIGATION ========== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon">&#128196;</span>
+                <span class="brand-name">Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <nav class="nav" id="main-nav" aria-label="Main navigation">
+                <ul class="nav-list">
+                    <li><a href="/" class="nav-link" id="nav-home">Home</a></li>
+                    <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
+                    <li><a href="/certificates" class="nav-link" id="nav-certificates">Manage Certificates</a></li>
+                    <li><a href="/blockchain" class="nav-link active" id="nav-blockchain">Blockchain</a></li>
+                    <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-hero">
+            <div class="container">
+                <h1 class="page-title">Blockchain Explorer</h1>
+                <p class="page-sub">Custom cryptographic blockchain storing immutable SHA-256 certificate hashes.</p>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="container blockchain-container">
+
+                <!-- Validation Status Display (Server-side or Client-side) -->
+                <div id="validation-display"
+                     th:class="${validationPerformed} ? (${isValid} ? 'validation-banner valid' : 'validation-banner tampered') : 'validation-banner'"
+                     th:style="${validationPerformed} ? 'display: flex;' : 'display: none;'">
+                    <span id="validation-text" th:text="${validationMessage}">Blockchain Valid</span>
+                </div>
+
+                <!-- Toolbar & Actions -->
+                <div class="blockchain-toolbar">
+                    <div class="chain-stats">
+                        <div class="stat-item">
+                            Total Blocks: <strong id="total-blocks-count" th:text="${totalBlocks}">0</strong>
+                        </div>
+                        <div class="stat-item">
+                            Hashing: <strong>SHA-256</strong>
+                        </div>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-primary" id="btn-validate" onclick="validateChain()">Validate Blockchain</button>
+                    </div>
+                </div>
+
+                <!-- Blocks Listing -->
+                <div class="blocks-list">
+                    <th:block th:each="block, iterStat : ${blocks}">
+                        <div class="block-card">
+                            <div class="block-header">
+                                <div class="block-title">
+                                    <span>Block #<span th:text="${block.index}">0</span></span>
+                                    <span th:if="${block.index == 0}" class="block-badge genesis">Genesis Block</span>
+                                    <span th:if="${block.index > 0}" class="block-badge">Certificate Block</span>
+                                </div>
+                                <div class="block-time">
+                                    <span th:text="${block.formattedTimestamp}">2024-01-01 00:00:00</span>
+                                </div>
+                            </div>
+
+                            <div class="block-grid">
+                                <div class="block-label">Block Number</div>
+                                <div class="block-value" th:text="${block.index}">0</div>
+
+                                <div class="block-label">Certificate ID</div>
+                                <div class="block-value mono">
+                                    <a th:if="${block.index > 0}" th:href="@{'/certificate/' + ${block.certificateId}}" th:text="${block.certificateId}">CERT-001</a>
+                                    <span th:if="${block.index == 0}" th:text="${block.certificateId}">GENESIS</span>
+                                </div>
+
+                                <div class="block-label">Certificate Hash</div>
+                                <div class="block-value mono" th:text="${block.certificateHash}">0000...</div>
+
+                                <div class="block-label">Previous Hash</div>
+                                <div class="block-value mono" th:text="${block.previousHash}">0000...</div>
+
+                                <div class="block-label">Current Hash</div>
+                                <div class="block-value mono" th:text="${block.hash}">3a7f...</div>
+
+                                <div class="block-label">Timestamp (epoch)</div>
+                                <div class="block-value mono" th:text="${block.timestamp}">1704067200000</div>
+                            </div>
+                        </div>
+
+                        <div th:if="${!iterStat.last}" class="chain-connector">&#8595;</div>
+                    </th:block>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <span class="brand-icon">&#128196;</span>
+                <span>Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <p class="footer-sub">Java Project · Day 3 Custom Blockchain</p>
+            <p class="footer-copy">&copy; 2024 Certificate Verification System. College Project Demonstration.</p>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js}"></script>
+    <script>
+        function validateChain() {
+            var btn = document.getElementById('btn-validate');
+            var banner = document.getElementById('validation-display');
+            var text = document.getElementById('validation-text');
+
+            btn.disabled = true;
+            btn.textContent = 'Validating...';
+
+            fetch('/api/blockchain/validate')
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(data) {
+                    banner.style.display = 'flex';
+                    if (data.valid) {
+                        banner.className = 'validation-banner valid';
+                        text.textContent = 'Blockchain Valid';
+                    } else {
+                        banner.className = 'validation-banner tampered';
+                        text.textContent = 'Blockchain Tampered';
+                    }
+                    if (data.totalBlocks !== undefined) {
+                        var countElem = document.getElementById('total-blocks-count');
+                        if (countElem) {
+                            countElem.textContent = data.totalBlocks;
+                        }
+                    }
+                })
+                .catch(function(err) {
+                    // Fallback to server reload with validate query param
+                    window.location.href = '/blockchain?validate=true';
+                })
+                .finally(function() {
+                    btn.disabled = false;
+                    btn.textContent = 'Validate Blockchain';
+                });
+        }
+    </script>
+</body>
+</html>

@@ -19,10 +19,13 @@ public class CertificateService {
     private static final Logger logger = LoggerFactory.getLogger(CertificateService.class);
 
     private final CertificateRepository certificateRepository;
+    private final com.certificateverification.blockchain.Blockchain blockchain;
 
     @Autowired
-    public CertificateService(CertificateRepository certificateRepository) {
+    public CertificateService(CertificateRepository certificateRepository,
+                              com.certificateverification.blockchain.Blockchain blockchain) {
         this.certificateRepository = certificateRepository;
+        this.blockchain = blockchain;
     }
 
     /**
@@ -76,6 +79,26 @@ public class CertificateService {
             certificate.setStatus("ISSUED");
         }
         certificate.setRevoked(false);
+
+        // Day 3: Custom blockchain integration
+        // 1. Generate canonical representation of certificate data
+        // 2. Generate SHA-256 certificate hash using Java MessageDigest
+        String expiryStr = certificate.getExpiryDate() != null ? certificate.getExpiryDate().toString() : "";
+        String certificateHash = com.certificateverification.blockchain.HashUtil.hashCertificate(
+                certificate.getCertificateId(),
+                certificate.getStudentName(),
+                certificate.getCourseName(),
+                certificate.getInstitutionName(),
+                certificate.getCertificateType(),
+                certificate.getIssueDate().toString(),
+                expiryStr
+        );
+        certificate.setBlockchainHash(certificateHash);
+
+        // 3 & 4 & 5. Create a blockchain block, store certificate hash, and link to previous block
+        com.certificateverification.model.Block block = blockchain.addCertificateBlock(certificate.getCertificateId(), certificateHash);
+        logger.info("Certificate {} anchored to Blockchain Block #{} with hash {}",
+                certificate.getCertificateId(), block.getIndex(), block.getHash());
 
         Certificate saved = certificateRepository.save(certificate);
         logger.info("Certificate successfully issued with ID: {}", saved.getCertificateId());

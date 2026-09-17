@@ -115,6 +115,7 @@
                     <li><a href="/" class="nav-link" id="nav-home">Home</a></li>
                     <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
                     <li><a href="/certificates" class="nav-link" id="nav-certificates">Manage Certificates</a></li>
+                    <li><a href="/blockchain" class="nav-link" id="nav-blockchain">Blockchain</a></li>
                     <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
                 </ul>
             </nav>
@@ -165,6 +166,10 @@
                             <span class="cert-label">Expiry Date</span>
                             <span class="cert-value" th:text="${certificate.expiryDate}">Date</span>
                         </div>
+                        <div class="cert-row" th:if="${certificate.blockchainHash != null}">
+                            <span class="cert-label">Blockchain Hash</span>
+                            <span class="cert-value mono" style="font-size: 0.8rem; word-break: break-all;" th:text="${certificate.blockchainHash}">Hash</span>
+                        </div>
                         <div class="cert-row">
                             <span class="cert-label">Status</span>
                             <span class="cert-value">
@@ -181,6 +186,7 @@
                 <div class="cert-actions">
                     <a href="/issue" class="btn btn-secondary">Issue Another</a>
                     <a href="/certificates" class="btn btn-secondary">All Certificates</a>
+                    <a href="/blockchain" class="btn btn-secondary">View on Blockchain</a>
                     <form th:if="${certificate.status != 'REVOKED'}" th:action="@{'/certificates/' + ${certificate.certificateId} + '/revoke'}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to revoke this certificate?');">
                         <button type="submit" class="btn btn-secondary" style="color: #c62828; border-color: #ffcdd2;">Revoke Certificate</button>
                     </form>
