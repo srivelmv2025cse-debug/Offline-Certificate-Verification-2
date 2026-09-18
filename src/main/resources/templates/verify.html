@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Verify certificate authenticity and detect tampered or fake certificates using blockchain.">
+    <title th:text="${pageTitle}">Verify Certificate - Offline Certificate Verification</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .verify-wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .verify-card {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+
+        @media (max-width: 650px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-group-full {
+            grid-column: 1 / -1;
+        }
+
+        .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            font-weight: 600;
+            color: var(--color-text-primary);
+            font-size: 0.9rem;
+        }
+
+        .form-label .required {
+            color: #d32f2f;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.65rem 0.8rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 0.95rem;
+            background-color: #ffffff;
+            color: var(--color-text-primary);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-hint {
+            display: block;
+            margin-top: var(--spacing-xs);
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-lg);
+        }
+
+        .form-actions .btn {
+            flex: 1;
+            text-align: center;
+        }
+
+        /* Verification Result Presentation */
+        .result-section {
+            margin-top: var(--spacing-xl);
+        }
+
+        .result-banner {
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-md);
+            font-size: 1.25rem;
+            font-weight: 700;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+            letter-spacing: 0.5px;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        /* 1. GENUINE: Green */
+        .result-banner.genuine {
+            background-color: #e8f5e9;
+            color: #1b5e20;
+            border: 2px solid #81c784;
+        }
+
+        /* 2. TAMPERED: Red */
+        .result-banner.tampered {
+            background-color: #ffebee;
+            color: #b71c1c;
+            border: 2px solid #ef5350;
+        }
+
+        /* 3. REVOKED: Orange/Amber */
+        .result-banner.revoked {
+            background-color: #fff8e1;
+            color: #b78103;
+            border: 2px solid #ffd54f;
+        }
+
+        /* 4. NOT FOUND: Neutral Slate / Dark Red */
+        .result-banner.not-found {
+            background-color: #f1f5f9;
+            color: #475569;
+            border: 2px solid #cbd5e1;
+        }
+
+        .result-details-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        .result-details-table th,
+        .result-details-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--color-border);
+            text-align: left;
+        }
+
+        .result-details-table th {
+            width: 28%;
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            background-color: rgba(0, 0, 0, 0.015);
+        }
+
+        .result-details-table td {
+            color: var(--color-text-primary);
+            word-break: break-all;
+        }
+
+        .hash-box {
+            font-family: monospace;
+            font-size: 0.85rem;
+            background-color: #f8fafc;
+            padding: 0.4rem 0.6rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            display: inline-block;
+            max-width: 100%;
+            word-break: break-all;
+        }
+
+        .match-badge {
+            display: inline-block;
+            padding: 0.3rem 0.7rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+
+        .match-badge.match-true {
+            background-color: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+        }
+
+        .match-badge.match-false {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.65rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .status-badge.status-issued {
+            background-color: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .status-badge.status-revoked {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.status-other {
+            background-color: #f1f5f9;
+            color: #475569;
+        }
+
+        .alert-error {
+            background-color: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .helper-text {
+            margin-top: var(--spacing-sm);
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========== HEADER / NAVIGATION ========== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon">&#128196;</span>
+                <span class="brand-name">Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <nav class="nav" id="main-nav" aria-label="Main navigation">
+                <ul class="nav-list">
+                    <li><a href="/" class="nav-link" id="nav-home">Home</a></li>
+                    <li><a href="/verify" class="nav-link active" id="nav-verify">Verify Certificate</a></li>
+                    <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
+                    <li><a href="/certificates" class="nav-link" id="nav-certificates">Manage Certificates</a></li>
+                    <li><a href="/blockchain" class="nav-link" id="nav-blockchain">Blockchain</a></li>
+                    <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-hero">
+            <div class="container">
+                <h1 class="page-title">Verify Certificate</h1>
+                <p class="page-sub">Validate certificate authenticity, check SHA-256 integrity, and detect tampered or revoked records against the blockchain.</p>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="container">
+                <div class="verify-wrapper">
+
+                    <!-- Error Alert -->
+                    <div th:if="${errorMessage}" class="alert-error" id="error-message-box" th:text="${errorMessage}"></div>
+
+                    <!-- Verification Input Form -->
+                    <div class="verify-card">
+                        <h2 style="margin-top: 0; margin-bottom: var(--spacing-sm); font-size: 1.25rem;">Enter Certificate Details</h2>
+                        <p class="helper-text" style="margin-bottom: var(--spacing-lg);">
+                            Enter the certificate credentials to compute its canonical SHA-256 hash and query the blockchain ledger.
+                        </p>
+
+                        <form th:action="@{/verify}" th:object="${verificationRequest}" method="post" id="verifyForm">
+                            <div class="form-grid">
+                                
+                                <div class="form-group form-group-full">
+                                    <label for="certificateId" class="form-label">Certificate ID <span class="required">*</span></label>
+                                    <input type="text" id="certificateId" name="certificateId" th:field="*{certificateId}" class="form-control" required placeholder="e.g. CERT-2024-001">
+                                    <small class="form-hint">The unique identifier issued on the certificate.</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="studentName" class="form-label">Student Name <span class="required">*</span></label>
+                                    <input type="text" id="studentName" name="studentName" th:field="*{studentName}" class="form-control" required placeholder="e.g. John Doe">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="institutionName" class="form-label">Institution <span class="required">*</span></label>
+                                    <input type="text" id="institutionName" name="institutionName" th:field="*{institutionName}" class="form-control" required placeholder="e.g. State University">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="courseName" class="form-label">Course Name <span class="required">*</span></label>
+                                    <input type="text" id="courseName" name="courseName" th:field="*{courseName}" class="form-control" required placeholder="e.g. B.Tech Computer Science">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="issueDate" class="form-label">Issue Date <span class="required">*</span></label>
+                                    <input type="date" id="issueDate" name="issueDate" th:field="*{issueDate}" class="form-control" required>
+                                </div>
+
+                                <div class="form-group form-group-full">
+                                    <label for="certificateType" class="form-label">Certificate Type (Optional)</label>
+                                    <input type="text" id="certificateType" name="certificateType" th:field="*{certificateType}" class="form-control" placeholder="e.g. Degree (inherited from registry if omitted)">
+                                </div>
+
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="reset" class="btn btn-secondary" id="btn-reset">Clear</button>
+                                <button type="submit" class="btn btn-primary" id="btn-verify-submit">Verify Certificate</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Verification Result Display -->
+                    <div th:if="${verificationPerformed}" class="result-section" id="verification-result-section">
+                        <div class="verify-card">
+                            
+                            <!-- Verdict Banner -->
+                            <div th:class="'result-banner ' + (${response.result == 'GENUINE CERTIFICATE'} ? 'genuine' : (${response.result == 'TAMPERED CERTIFICATE'} ? 'tampered' : (${response.result == 'REVOKED CERTIFICATE'} ? 'revoked' : 'not-found')))"
+                                 id="result-banner">
+                                <span th:if="${response.result == 'GENUINE CERTIFICATE'}">&#9989;</span>
+                                <span th:if="${response.result == 'TAMPERED CERTIFICATE'}">&#9888;&#65039;</span>
+                                <span th:if="${response.result == 'REVOKED CERTIFICATE'}">&#128683;</span>
+                                <span th:if="${response.result == 'Certificate Not Found / Potentially Fake'}">&#10060;</span>
+                                <span id="result-verdict-text" th:text="${response.result}">VERDICT</span>
+                            </div>
+
+                            <!-- Explanation Message -->
+                            <p style="text-align: center; margin-bottom: var(--spacing-lg); color: var(--color-text-secondary); font-size: 1rem;"
+                               th:text="${response.message}" id="result-message"></p>
+
+                            <!-- Breakdown Grid -->
+                            <table class="result-details-table" id="result-details-table">
+                                <tbody>
+                                    <tr>
+                                        <th>Certificate ID</th>
+                                        <td id="res-cert-id"><strong th:text="${response.certificateId}">CERT-001</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <th>Student</th>
+                                        <td id="res-student" th:text="${response.student}">Student Name</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Institution</th>
+                                        <td id="res-institution" th:text="${response.institution}">Institution Name</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Course</th>
+                                        <td id="res-course" th:text="${response.course}">Course Name</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Blockchain Hash</th>
+                                        <td>
+                                            <span class="hash-box" id="res-blockchain-hash" th:text="${response.blockchainHash}">e3b0c44...</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Calculated Hash</th>
+                                        <td>
+                                            <span class="hash-box" id="res-calculated-hash" th:text="${response.calculatedHash}">e3b0c44...</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Blockchain Match</th>
+                                        <td>
+                                            <span id="res-blockchain-match"
+                                                  th:class="'match-badge ' + (${response.blockchainMatch} ? 'match-true' : 'match-false')"
+                                                  th:text="${response.blockchainMatch ? 'MATCH' : 'MISMATCH'}">
+                                                MATCH
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Certificate Status</th>
+                                        <td>
+                                            <span id="res-certificate-status"
+                                                  th:class="'status-badge ' + (${response.certificateStatus == 'ISSUED'} ? 'status-issued' : (${response.certificateStatus == 'REVOKED'} ? 'status-revoked' : 'status-other'))"
+                                                  th:text="${response.certificateStatus}">
+                                                ISSUED
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div style="margin-top: var(--spacing-lg); display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
+                                <a th:href="@{/blockchain}" class="btn btn-secondary">Explore Blockchain</a>
+                                <a th:href="@{'/certificate/' + ${response.certificateId}}" class="btn btn-secondary" th:if="${response.result != 'Certificate Not Found / Potentially Fake'}">View Certificate Record</a>
+                                <a href="/verify" class="btn btn-primary">Verify Another</a>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <span class="brand-icon">&#128196;</span>
+                <span>Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <p class="footer-sub">Java Project - Day 4: Certificate Verification & Fraud Detection</p>
+            <p class="footer-copy">&copy; 2024 Certificate Verification System. College Project Demonstration.</p>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js}"></script>
+</body>
+</html>

@@ -1,7 +1,10 @@
 package com.certificateverification.controller;
 
+import com.certificateverification.dto.CertificateVerificationRequest;
+import com.certificateverification.dto.CertificateVerificationResponse;
 import com.certificateverification.model.Certificate;
 import com.certificateverification.service.CertificateService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,8 +16,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * REST API controller for certificate operations.
- * Day 2: Implementation of Certificate Issuing and Management REST APIs.
+ * REST API controller for certificate operations: issue, verify, revoke.
+ * Day 4: Implemented POST /api/certificates/verify with structured response & tamper detection.
  */
 @RestController
 @RequestMapping("/api/certificates")
@@ -82,6 +85,33 @@ public class CertificateController {
     }
 
     /**
+     * Verify certificate data against the blockchain and detect tampering or revocation.
+     * POST /api/certificates/verify
+     *
+     * @param request verification request body
+     * @param httpRequest servlet request to extract client IP
+     * @return 200 OK with CertificateVerificationResponse, or 400 Bad Request on validation error
+     */
+    @PostMapping("/verify")
+    public ResponseEntity<?> verifyCertificate(
+            @RequestBody CertificateVerificationRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            String ipAddress = httpRequest != null ? httpRequest.getRemoteAddr() : "127.0.0.1";
+            CertificateVerificationResponse response = certificateService.verifyCertificate(request, ipAddress);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "An unexpected error occurred during verification: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    /**
      * Revoke a certificate by its certificate ID.
      *
      * @param certificateId unique certificate identifier
@@ -110,7 +140,7 @@ public class CertificateController {
         return ResponseEntity.ok(Map.of(
                 "status", "UP",
                 "service", "Certificate Verification API",
-                "day", "2 - Certificate Issuing & Management"
+                "day", "4 - Certificate Verification & Fraud Detection"
         ));
     }
 }

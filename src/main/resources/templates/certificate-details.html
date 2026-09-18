@@ -113,6 +113,7 @@
             <nav class="nav" id="main-nav" aria-label="Main navigation">
                 <ul class="nav-list">
                     <li><a href="/" class="nav-link" id="nav-home">Home</a></li>
+                    <li><a href="/verify" class="nav-link" id="nav-verify">Verify Certificate</a></li>
                     <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
                     <li><a href="/certificates" class="nav-link" id="nav-certificates">Manage Certificates</a></li>
                     <li><a href="/blockchain" class="nav-link" id="nav-blockchain">Blockchain</a></li>
@@ -184,13 +185,14 @@
                 </div>
                 
                 <div class="cert-actions">
+                    <a th:href="@{'/verify?certificateId=' + ${certificate.certificateId}}" class="btn btn-primary" id="btn-verify-cert-details">Verify Authenticity</a>
                     <a href="/issue" class="btn btn-secondary">Issue Another</a>
                     <a href="/certificates" class="btn btn-secondary">All Certificates</a>
                     <a href="/blockchain" class="btn btn-secondary">View on Blockchain</a>
                     <form th:if="${certificate.status != 'REVOKED'}" th:action="@{'/certificates/' + ${certificate.certificateId} + '/revoke'}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to revoke this certificate?');">
                         <button type="submit" class="btn btn-secondary" style="color: #c62828; border-color: #ffcdd2;">Revoke Certificate</button>
                     </form>
-                    <a href="/" class="btn btn-primary">Home</a>
+                    <a href="/" class="btn btn-secondary">Home</a>
                 </div>
             </div>
         </section>

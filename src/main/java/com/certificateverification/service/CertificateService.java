@@ -1,17 +1,26 @@
 package com.certificateverification.service;
 
+import com.certificateverification.blockchain.Blockchain;
+import com.certificateverification.blockchain.HashUtil;
+import com.certificateverification.dto.CertificateVerificationRequest;
+import com.certificateverification.dto.CertificateVerificationResponse;
+import com.certificateverification.model.AuditLog;
+import com.certificateverification.model.Block;
 import com.certificateverification.model.Certificate;
+import com.certificateverification.repository.AuditLogRepository;
 import com.certificateverification.repository.CertificateRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
  * Service for certificate operations: issue, verify, revoke.
- * Day 1: Placeholder service - full implementation in Day 2+.
+ * Day 4: Implemented certificate verification and tamper/fraud detection.
  */
 @Service
 public class CertificateService {
@@ -19,13 +28,16 @@ public class CertificateService {
     private static final Logger logger = LoggerFactory.getLogger(CertificateService.class);
 
     private final CertificateRepository certificateRepository;
-    private final com.certificateverification.blockchain.Blockchain blockchain;
+    private final Blockchain blockchain;
+    private final AuditLogRepository auditLogRepository;
 
     @Autowired
     public CertificateService(CertificateRepository certificateRepository,
-                              com.certificateverification.blockchain.Blockchain blockchain) {
+                              Blockchain blockchain,
+                              AuditLogRepository auditLogRepository) {
         this.certificateRepository = certificateRepository;
         this.blockchain = blockchain;
+        this.auditLogRepository = auditLogRepository;
     }
 
     /**
@@ -84,7 +96,7 @@ public class CertificateService {
         // 1. Generate canonical representation of certificate data
         // 2. Generate SHA-256 certificate hash using Java MessageDigest
         String expiryStr = certificate.getExpiryDate() != null ? certificate.getExpiryDate().toString() : "";
-        String certificateHash = com.certificateverification.blockchain.HashUtil.hashCertificate(
+        String certificateHash = HashUtil.hashCertificate(
                 certificate.getCertificateId(),
                 certificate.getStudentName(),
                 certificate.getCourseName(),
@@ -96,7 +108,7 @@ public class CertificateService {
         certificate.setBlockchainHash(certificateHash);
 
         // 3 & 4 & 5. Create a blockchain block, store certificate hash, and link to previous block
-        com.certificateverification.model.Block block = blockchain.addCertificateBlock(certificate.getCertificateId(), certificateHash);
+        Block block = blockchain.addCertificateBlock(certificate.getCertificateId(), certificateHash);
         logger.info("Certificate {} anchored to Blockchain Block #{} with hash {}",
                 certificate.getCertificateId(), block.getIndex(), block.getHash());
 
@@ -123,7 +135,7 @@ public class CertificateService {
      *
      * @return list of all certificates
      */
-    public java.util.List<Certificate> getAllCertificates() {
+    public List<Certificate> getAllCertificates() {
         return certificateRepository.findAllByOrderByCreatedAtDesc();
     }
 
@@ -143,11 +155,151 @@ public class CertificateService {
     }
 
     /**
-     * Verify a certificate by its ID.
-     * (Placeholder for future verification tasks)
+     * Legacy boolean verification check.
      */
     public boolean verifyCertificate(String certificateId) {
         logger.info("CertificateService.verifyCertificate({})", certificateId);
         return getCertificateById(certificateId).isPresent();
+    }
+
+    /**
+     * Overload helper for verifying certificate with default IP.
+     */
+    public CertificateVerificationResponse verifyCertificate(CertificateVerificationRequest request) {
+        return verifyCertificate(request, "127.0.0.1");
+    }
+
+    /**
+     * Core Day 4 verification and tamper/fraud detection.
+     *
+     * <p>Generates SHA-256 hash using the same canonical format as issuance, searches
+     * the blockchain for the certificate block, verifies authenticity, detects tampering,
+     * checks revocation status, and logs the attempt to audit logs.</p>
+     *
+     * @param request verification request containing certificate fields
+     * @param ipAddress client IP address for audit logging
+     * @return structured verification response
+     */
+    public CertificateVerificationResponse verifyCertificate(CertificateVerificationRequest request, String ipAddress) {
+        if (request == null) {
+            throw new IllegalArgumentException("Verification request cannot be null");
+        }
+
+        String certificateId = request.getCertificateId() != null ? request.getCertificateId().trim() : "";
+        String studentName = request.getStudentName() != null ? request.getStudentName().trim() : "";
+        String courseName = request.getCourseName() != null ? request.getCourseName().trim() : "";
+        String institutionName = request.getInstitutionName() != null ? request.getInstitutionName().trim() : "";
+        String issueDate = request.getIssueDate() != null ? request.getIssueDate().trim() : "";
+
+        if (certificateId.isEmpty()) {
+            throw new IllegalArgumentException("Certificate ID is required for verification");
+        }
+
+        logger.info("Verifying certificate ID: '{}' from IP: {}", certificateId, ipAddress);
+
+        // 1. Search the blockchain for the certificate block
+        Optional<Block> blockOpt = blockchain.getBlockByCertificateId(certificateId);
+
+        // 2. Search database for existing certificate
+        Optional<Certificate> certOpt = certificateRepository.findByCertificateId(certificateId);
+
+        // 3. Resolve certificateType and expiryDate for deterministic canonical hashing
+        String certificateType = request.getCertificateType();
+        if ((certificateType == null || certificateType.trim().isEmpty()) && certOpt.isPresent()) {
+            certificateType = certOpt.get().getCertificateType();
+        }
+        if (certificateType == null) {
+            certificateType = "";
+        }
+
+        String expiryDate = request.getExpiryDate();
+        if ((expiryDate == null || expiryDate.trim().isEmpty()) && certOpt.isPresent() && certOpt.get().getExpiryDate() != null) {
+            expiryDate = certOpt.get().getExpiryDate().toString();
+        }
+        if (expiryDate == null) {
+            expiryDate = "";
+        }
+
+        // 4. Recalculate SHA-256 hash using the SAME canonical format used during issuance
+        String calculatedHash = HashUtil.hashCertificate(
+                certificateId,
+                studentName,
+                courseName,
+                institutionName,
+                certificateType,
+                issueDate,
+                expiryDate
+        );
+
+        String blockchainHash = blockOpt.map(Block::getCertificateHash).orElse(null);
+        boolean blockchainMatch = blockchainHash != null && blockchainHash.equalsIgnoreCase(calculatedHash);
+
+        // 5. Verification logic:
+        // 1. Certificate ID not found: Result = "Certificate Not Found / Potentially Fake"
+        // 2. Certificate ID found and hash matches: Result = "GENUINE CERTIFICATE"
+        // 3. Certificate ID found but hash does not match: Result = "TAMPERED CERTIFICATE"
+        // 4. Certificate is revoked: Result = "REVOKED CERTIFICATE"
+
+        String result;
+        String certificateStatus;
+        boolean verified = false;
+        String auditAction;
+        String message;
+
+        boolean isRevoked = certOpt.isPresent() && (certOpt.get().isRevoked() || "REVOKED".equalsIgnoreCase(certOpt.get().getStatus()));
+
+        if (blockOpt.isEmpty()) {
+            result = "Certificate Not Found / Potentially Fake";
+            certificateStatus = certOpt.map(Certificate::getStatus).orElse("NOT_FOUND");
+            auditAction = "FAILED_VERIFICATION";
+            message = "Certificate ID '" + certificateId + "' was not found on the blockchain ledger.";
+        } else if (isRevoked) {
+            result = "REVOKED CERTIFICATE";
+            certificateStatus = "REVOKED";
+            auditAction = "FAILED_VERIFICATION";
+            message = "Certificate has been formally revoked by the issuing authority.";
+        } else if (blockchainMatch) {
+            result = "GENUINE CERTIFICATE";
+            certificateStatus = certOpt.map(Certificate::getStatus).orElse("ISSUED");
+            verified = true;
+            auditAction = "VERIFIED";
+            message = "Certificate is authentic and matches the blockchain ledger.";
+        } else {
+            result = "TAMPERED CERTIFICATE";
+            certificateStatus = "TAMPERED";
+            auditAction = "FAILED_VERIFICATION";
+            message = "Certificate data does not match the immutable hash recorded on the blockchain.";
+        }
+
+        // 6. Record audit log entry for every verification attempt
+        try {
+            AuditLog auditLog = new AuditLog();
+            auditLog.setCertificateId(certificateId);
+            auditLog.setAction(auditAction);
+            auditLog.setIpAddress(ipAddress != null ? ipAddress : "127.0.0.1");
+            auditLog.setDetails("Result: " + result + " | match=" + blockchainMatch
+                    + " | calcHash=" + calculatedHash
+                    + " | blockHash=" + (blockchainHash != null ? blockchainHash : "NONE"));
+            auditLog.setTimestamp(LocalDateTime.now());
+            auditLogRepository.save(auditLog);
+            logger.info("Verification audit logged: action={}, result={}, certId={}", auditAction, result, certificateId);
+        } catch (Exception e) {
+            logger.error("Failed to persist verification audit log", e);
+        }
+
+        return CertificateVerificationResponse.builder()
+                .result(result)
+                .certificateId(certificateId)
+                .student(studentName)
+                .institution(institutionName)
+                .course(courseName)
+                .issueDate(issueDate)
+                .blockchainHash(blockchainHash != null ? blockchainHash : "N/A")
+                .calculatedHash(calculatedHash)
+                .blockchainMatch(blockchainMatch)
+                .certificateStatus(certificateStatus)
+                .verified(verified)
+                .message(message)
+                .build();
     }
 }

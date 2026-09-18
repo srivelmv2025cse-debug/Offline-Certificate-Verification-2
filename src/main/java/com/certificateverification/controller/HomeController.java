@@ -1,31 +1,32 @@
 package com.certificateverification.controller;
 
+import com.certificateverification.blockchain.Blockchain;
+import com.certificateverification.dto.CertificateVerificationRequest;
+import com.certificateverification.dto.CertificateVerificationResponse;
 import com.certificateverification.model.Certificate;
 import com.certificateverification.service.CertificateService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.Optional;
 
 /**
- * Home controller serving the main landing page.
- * Day 1: Returns the homepage view.
+ * Web MVC controller serving UI pages: home, issue, management, blockchain explorer, and verification.
+ * Day 4: Added Verify Certificate UI page (/verify).
  */
 @Controller
 public class HomeController {
 
     private final CertificateService certificateService;
-    private final com.certificateverification.blockchain.Blockchain blockchain;
+    private final Blockchain blockchain;
 
     @Autowired
     public HomeController(CertificateService certificateService,
-                          com.certificateverification.blockchain.Blockchain blockchain) {
+                          Blockchain blockchain) {
         this.certificateService = certificateService;
         this.blockchain = blockchain;
     }
@@ -95,7 +96,7 @@ public class HomeController {
     }
 
     @GetMapping("/blockchain")
-    public String showBlockchain(@org.springframework.web.bind.annotation.RequestParam(value = "validate", required = false) Boolean validate, Model model) {
+    public String showBlockchain(@RequestParam(value = "validate", required = false) Boolean validate, Model model) {
         model.addAttribute("pageTitle", "Blockchain Explorer");
         model.addAttribute("blocks", blockchain.getChain());
         model.addAttribute("totalBlocks", blockchain.getChainSize());
@@ -106,5 +107,45 @@ public class HomeController {
             model.addAttribute("validationMessage", isValid ? "Blockchain Valid" : "Blockchain Tampered");
         }
         return "blockchain";
+    }
+
+    @GetMapping("/verify")
+    public String showVerifyForm(@RequestParam(value = "certificateId", required = false) String certificateId, Model model) {
+        model.addAttribute("pageTitle", "Verify Certificate");
+        CertificateVerificationRequest req = new CertificateVerificationRequest();
+        if (certificateId != null && !certificateId.trim().isEmpty()) {
+            req.setCertificateId(certificateId.trim());
+            certificateService.getCertificateById(certificateId.trim()).ifPresent(cert -> {
+                req.setStudentName(cert.getStudentName());
+                req.setCourseName(cert.getCourseName());
+                req.setInstitutionName(cert.getInstitutionName());
+                req.setCertificateType(cert.getCertificateType());
+                req.setIssueDate(cert.getIssueDate() != null ? cert.getIssueDate().toString() : "");
+                if (cert.getExpiryDate() != null) {
+                    req.setExpiryDate(cert.getExpiryDate().toString());
+                }
+            });
+        }
+        model.addAttribute("verificationRequest", req);
+        return "verify";
+    }
+
+    @PostMapping("/verify")
+    public String verifyCertificate(
+            @ModelAttribute("verificationRequest") CertificateVerificationRequest verificationRequest,
+            HttpServletRequest httpRequest,
+            Model model) {
+        model.addAttribute("pageTitle", "Certificate Verification Result");
+        try {
+            String ipAddress = httpRequest != null ? httpRequest.getRemoteAddr() : "127.0.0.1";
+            CertificateVerificationResponse response = certificateService.verifyCertificate(verificationRequest, ipAddress);
+            model.addAttribute("response", response);
+            model.addAttribute("verificationPerformed", true);
+        } catch (IllegalArgumentException e) {
+            model.addAttribute("errorMessage", e.getMessage());
+        } catch (Exception e) {
+            model.addAttribute("errorMessage", "An error occurred during verification: " + e.getMessage());
+        }
+        return "verify";
     }
 }
