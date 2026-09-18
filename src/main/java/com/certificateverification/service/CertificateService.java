@@ -30,14 +30,17 @@ public class CertificateService {
     private final CertificateRepository certificateRepository;
     private final Blockchain blockchain;
     private final AuditLogRepository auditLogRepository;
+    private final com.certificateverification.qr.QRService qrService;
 
     @Autowired
     public CertificateService(CertificateRepository certificateRepository,
                               Blockchain blockchain,
-                              AuditLogRepository auditLogRepository) {
+                              AuditLogRepository auditLogRepository,
+                              com.certificateverification.qr.QRService qrService) {
         this.certificateRepository = certificateRepository;
         this.blockchain = blockchain;
         this.auditLogRepository = auditLogRepository;
+        this.qrService = qrService;
     }
 
     /**
@@ -112,9 +115,27 @@ public class CertificateService {
         logger.info("Certificate {} anchored to Blockchain Block #{} with hash {}",
                 certificate.getCertificateId(), block.getIndex(), block.getHash());
 
+        // Day 5: Generate QR code encoding non-sensitive credentials (Certificate ID and verification reference)
+        try {
+            qrService.generateQRCodeForCertificate(certificate);
+        } catch (Exception e) {
+            logger.warn("Failed to generate QR code during issuance for certificate {}: {}", certificate.getCertificateId(), e.getMessage());
+        }
+
         Certificate saved = certificateRepository.save(certificate);
         logger.info("Certificate successfully issued with ID: {}", saved.getCertificateId());
         return saved;
+    }
+
+    /**
+     * Generate or regenerate a QR code for a certificate.
+     *
+     * @param certificateId certificate ID
+     * @return updated certificate
+     */
+    public Certificate generateQRCodeForCertificate(String certificateId) {
+        logger.info("Generating QR code for certificate: {}", certificateId);
+        return qrService.generateAndSaveQRCode(certificateId);
     }
     
     /**

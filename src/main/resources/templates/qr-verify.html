@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Verify academic and professional certificates using cryptographic QR codes and offline blockchain.">
+    <title th:text="${pageTitle}">QR Code Certificate Verification</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .qr-verify-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .verify-card {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: var(--spacing-xs);
+            margin-bottom: var(--spacing-lg);
+            border-bottom: 2px solid var(--color-border);
+            padding-bottom: var(--spacing-xs);
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 0.5rem 1rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background-color: var(--color-accent);
+            color: #ffffff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            font-weight: 600;
+            color: var(--color-text-primary);
+            font-size: 0.9rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.65rem 0.8rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 0.95rem;
+            background-color: #ffffff;
+            color: var(--color-text-primary);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-hint {
+            display: block;
+            margin-top: var(--spacing-xs);
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+        }
+
+        .upload-dropzone {
+            border: 2px dashed var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-xl);
+            text-align: center;
+            background-color: #f8fafc;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-dropzone:hover {
+            border-color: var(--color-accent);
+            background-color: #f1f5f9;
+        }
+
+        .dropzone-icon {
+            font-size: 2.5rem;
+            margin-bottom: var(--spacing-xs);
+            display: block;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-lg);
+        }
+
+        .form-actions .btn {
+            flex: 1;
+            text-align: center;
+        }
+
+        /* Result Presentation */
+        .result-banner {
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-md);
+            font-size: 1.35rem;
+            font-weight: 700;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+            letter-spacing: 0.5px;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        /* 1. Genuine */
+        .result-banner.genuine {
+            background-color: #e8f5e9;
+            color: #1b5e20;
+            border: 2px solid #81c784;
+        }
+
+        /* 2. Tampered */
+        .result-banner.tampered {
+            background-color: #ffebee;
+            color: #b71c1c;
+            border: 2px solid #ef5350;
+        }
+
+        /* 3. Not Found */
+        .result-banner.not-found {
+            background-color: #f1f5f9;
+            color: #475569;
+            border: 2px solid #cbd5e1;
+        }
+
+        /* 4. Revoked */
+        .result-banner.revoked {
+            background-color: #fff8e1;
+            color: #b78103;
+            border: 2px solid #ffd54f;
+        }
+
+        /* 5. Invalid */
+        .result-banner.invalid {
+            background-color: #fef2f2;
+            color: #991b1b;
+            border: 2px solid #fca5a5;
+        }
+
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        .result-table th,
+        .result-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--color-border);
+            text-align: left;
+        }
+
+        .result-table th {
+            width: 30%;
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            background-color: rgba(0, 0, 0, 0.015);
+        }
+
+        .result-table td {
+            color: var(--color-text-primary);
+            word-break: break-all;
+        }
+
+        .hash-mono {
+            font-family: monospace;
+            font-size: 0.85rem;
+            background-color: #f8fafc;
+            padding: 0.35rem 0.6rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            display: inline-block;
+            word-break: break-all;
+        }
+
+        .badge-pill {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .badge-pill.success {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-pill.danger {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .alert-error {
+            background-color: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-md);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========== HEADER ========== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon">&#128196;</span>
+                <span class="brand-name">Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <nav class="nav" id="main-nav" aria-label="Main navigation">
+                <ul class="nav-list">
+                    <li><a href="/" class="nav-link" id="nav-home">Home</a></li>
+                    <li><a href="/verify" class="nav-link" id="nav-verify">Verify Certificate</a></li>
+                    <li><a href="/verify-qr" class="nav-link active" id="nav-verify-qr">QR Verify</a></li>
+                    <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
+                    <li><a href="/certificates" class="nav-link" id="nav-certificates">Manage Certificates</a></li>
+                    <li><a href="/blockchain" class="nav-link" id="nav-blockchain">Blockchain</a></li>
+                    <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-hero">
+            <div class="container">
+                <h1 class="page-title">QR Code Certificate Verification</h1>
+                <p class="page-sub">Verify certificate authenticity offline or online using cryptographic QR codes and local blockchain verification.</p>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="container">
+                <div class="qr-verify-container">
+
+                    <div th:if="${errorMessage}" class="alert-error" id="error-message-box" th:text="${errorMessage}"></div>
+
+                    <!-- Input Card -->
+                    <div class="verify-card">
+                        <h2 style="margin-top: 0; font-size: 1.25rem;">Verify Via QR Code</h2>
+                        <p style="color: var(--color-text-secondary); font-size: 0.9rem; margin-bottom: var(--spacing-md);">
+                            The QR code embeds the Certificate ID and immutable blockchain hash reference without exposing sensitive personal information.
+                        </p>
+
+                        <!-- Input Mode Tabs -->
+                        <div class="tab-buttons">
+                            <button type="button" class="tab-btn active" id="tab-scanned" onclick="switchTab('scanned')">Scanned / Entered QR Value</button>
+                            <button type="button" class="tab-btn" id="tab-manual" onclick="switchTab('manual')">Enter Certificate ID Manually</button>
+                            <button type="button" class="tab-btn" id="tab-image" onclick="switchTab('image')">Upload QR Image</button>
+                        </div>
+
+                        <form th:action="@{/verify-qr}" th:object="${qrRequest}" method="post" id="qrVerifyForm">
+                            
+                            <!-- Hidden image base64 input -->
+                            <input type="hidden" id="qrImageBase64" name="qrImageBase64" th:field="*{qrImageBase64}" />
+
+                            <!-- Tab 1: Scanned QR value -->
+                            <div class="tab-content active" id="content-scanned">
+                                <div class="form-group">
+                                    <label for="qrValue" class="form-label">Scanned QR Code Content / JSON Payload</label>
+                                    <textarea id="qrValue" name="qrValue" th:field="*{qrValue}" rows="3" class="form-control" placeholder='e.g. {"certId":"CERT-2024-001","ref":"4e6dc2ce..."}'></textarea>
+                                    <small class="form-hint">Paste raw decoded QR text, verification URI, or payload JSON.</small>
+                                </div>
+                            </div>
+
+                            <!-- Tab 2: Manual Certificate ID -->
+                            <div class="tab-content" id="content-manual">
+                                <div class="form-group">
+                                    <label for="certificateId" class="form-label">Certificate ID</label>
+                                    <input type="text" id="certificateId" name="certificateId" th:field="*{certificateId}" class="form-control" placeholder="e.g. CERT-2024-001">
+                                    <small class="form-hint">Enter the unique Certificate ID directly for ledger lookup.</small>
+                                </div>
+                            </div>
+
+                            <!-- Tab 3: Upload QR Image -->
+                            <div class="tab-content" id="content-image">
+                                <div class="form-group">
+                                    <label class="form-label">Upload QR Code Image (PNG / JPEG)</label>
+                                    <div class="upload-dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+                                        <span class="dropzone-icon">&#128247;</span>
+                                        <strong>Click to browse or drop QR image here</strong>
+                                        <p style="margin: var(--spacing-xs) 0 0 0; font-size: 0.85rem; color: var(--color-text-muted);">ZXing will decode the QR code on upload</p>
+                                    </div>
+                                    <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleImageFile(this.files[0])" />
+                                    <div id="image-preview-container" style="margin-top: var(--spacing-md); display:none; text-align:center;">
+                                        <img id="image-preview" style="max-width: 160px; max-height: 160px; border: 1px solid var(--color-border); border-radius: var(--radius-sm);" alt="Preview" />
+                                        <p id="image-file-name" style="font-size: 0.85rem; color: var(--color-text-secondary); margin-top: 0.25rem;"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="reset" class="btn btn-secondary" onclick="resetForm()">Clear</button>
+                                <button type="submit" class="btn btn-primary" id="btn-submit-qr">Verify Certificate</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Result Section -->
+                    <div th:if="${verificationPerformed}" class="verify-card" id="qr-result-section">
+                        
+                        <!-- Verdict Banner -->
+                        <div th:class="'result-banner ' + (${qrResponse.result == 'Genuine'} ? 'genuine' : (${qrResponse.result == 'Tampered'} ? 'tampered' : (${qrResponse.result == 'Revoked'} ? 'revoked' : (${qrResponse.result == 'Not Found'} ? 'not-found' : 'invalid'))))"
+                             id="qr-result-banner">
+                            <span th:if="${qrResponse.result == 'Genuine'}">&#9989;</span>
+                            <span th:if="${qrResponse.result == 'Tampered'}">&#9888;&#65039;</span>
+                            <span th:if="${qrResponse.result == 'Revoked'}">&#128683;</span>
+                            <span th:if="${qrResponse.result == 'Not Found'}">&#10060;</span>
+                            <span th:if="${qrResponse.result == 'Invalid QR Code'}">&#9888;</span>
+                            <span id="qr-verdict-text" th:text="${qrResponse.result}">Genuine</span>
+                        </div>
+
+                        <!-- Message -->
+                        <p style="text-align: center; color: var(--color-text-secondary); font-size: 1rem; margin-bottom: var(--spacing-lg);"
+                           th:text="${qrResponse.message}" id="qr-result-message"></p>
+
+                        <!-- Breakdown Table -->
+                        <table class="result-table" id="qr-result-table">
+                            <tbody>
+                                <tr th:if="${qrResponse.certificateId != null}">
+                                    <th>Certificate ID</th>
+                                    <td><strong id="qr-res-id" th:text="${qrResponse.certificateId}">CERT-001</strong></td>
+                                </tr>
+                                <tr th:if="${qrResponse.student != null}">
+                                    <th>Student</th>
+                                    <td id="qr-res-student" th:text="${qrResponse.student}">Student Name</td>
+                                </tr>
+                                <tr th:if="${qrResponse.institution != null}">
+                                    <th>Institution</th>
+                                    <td id="qr-res-institution" th:text="${qrResponse.institution}">Institution</td>
+                                </tr>
+                                <tr th:if="${qrResponse.course != null}">
+                                    <th>Course</th>
+                                    <td id="qr-res-course" th:text="${qrResponse.course}">Course</td>
+                                </tr>
+                                <tr th:if="${qrResponse.issueDate != null}">
+                                    <th>Issue Date</th>
+                                    <td th:text="${qrResponse.issueDate}">Date</td>
+                                </tr>
+                                <tr th:if="${qrResponse.blockchainHash != null}">
+                                    <th>Blockchain Hash</th>
+                                    <td><span class="hash-mono" id="qr-res-blockchain-hash" th:text="${qrResponse.blockchainHash}">4e6dc2...</span></td>
+                                </tr>
+                                <tr th:if="${qrResponse.qrReference != null}">
+                                    <th>QR Verification Ref</th>
+                                    <td><span class="hash-mono" id="qr-res-ref" th:text="${qrResponse.qrReference}">4e6dc2...</span></td>
+                                </tr>
+                                <tr>
+                                    <th>Blockchain Match</th>
+                                    <td>
+                                        <span id="qr-res-match"
+                                              th:class="'badge-pill ' + (${qrResponse.blockchainMatch} ? 'success' : 'danger')"
+                                              th:text="${qrResponse.blockchainMatch ? 'MATCH' : 'MISMATCH'}">
+                                            MATCH
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Status</th>
+                                    <td><span class="badge-pill" th:text="${qrResponse.status}">GENUINE</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div style="margin-top: var(--spacing-lg); display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
+                            <a th:href="@{/blockchain}" class="btn btn-secondary">Explore Blockchain</a>
+                            <a th:if="${qrResponse.certificateId != null and qrResponse.result != 'Not Found'}"
+                               th:href="@{'/certificate/' + ${qrResponse.certificateId}}" class="btn btn-secondary">View Certificate Record</a>
+                            <a href="/verify-qr" class="btn btn-primary">Verify Another</a>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <span class="brand-icon">&#128196;</span>
+                <span>Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <p class="footer-sub">Java Project - Day 5: QR Code Verification</p>
+            <p class="footer-copy">&copy; 2024 Certificate Verification System. College Project Demonstration.</p>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js}"></script>
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            const activeBtn = document.getElementById('tab-' + tabId);
+            const activeContent = document.getElementById('content-' + tabId);
+            if (activeBtn) activeBtn.classList.add('active');
+            if (activeContent) activeContent.classList.add('active');
+        }
+
+        function handleImageFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Data = e.target.result;
+                document.getElementById('qrImageBase64').value = base64Data;
+                document.getElementById('image-preview').src = base64Data;
+                document.getElementById('image-file-name').innerText = file.name + " (" + Math.round(file.size / 1024) + " KB)";
+                document.getElementById('image-preview-container').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetForm() {
+            document.getElementById('qrImageBase64').value = '';
+            document.getElementById('image-preview-container').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

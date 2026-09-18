@@ -9,7 +9,7 @@ A college Java project demonstrating how blockchain technology can be used to is
 Traditional certificate verification relies on centralized databases that require an active Internet connection. This project solves that problem by:
 
 - Storing certificate hashes on a **local blockchain**, making records tamper-proof.
-- Embedding certificate data in **QR codes** that can be verified without Internet access *(Upcoming)*.
+- Embedding certificate data in **cryptographic QR codes** that can be verified without Internet access.
 - Using **RSA digital signatures** to authenticate the issuing institution *(Upcoming)*.
 - Providing a complete **audit trail** of all certificate actions including issuance, verification, and revocation.
 
@@ -26,7 +26,7 @@ Traditional certificate verification relies on centralized databases that requir
 | Hibernate / JPA | ORM for database access |
 | Thymeleaf | Server-side HTML rendering |
 | HTML / CSS / JavaScript | Frontend |
-| ZXing | QR code generation and scanning *(Upcoming)* |
+| ZXing 3.5.3 | QR code generation and decoding (PNG & Base64) |
 | RSA Digital Signatures | Certificate authenticity *(Upcoming)* |
 | SHA-256 Hashing | Blockchain integrity & deterministic canonical data hashing |
 
@@ -41,17 +41,24 @@ certificate-verification/
 │   │   ├── java/com/certificateverification/
 │   │   │   ├── CertificateVerificationApplication.java  ← Main entry point
 │   │   │   ├── controller/
-│   │   │   │   ├── HomeController.java                  ← Serves HTML pages (Home, Issue, Verify, Blockchain)
+│   │   │   │   ├── HomeController.java                  ← Serves HTML pages (Home, Issue, Verify, QR Verify)
 │   │   │   │   ├── CertificateController.java           ← REST API endpoints (/api/certificates/**)
-│   │   │   │   └── BlockchainController.java            ← Blockchain REST APIs (/api/blockchain/**)
+│   │   │   │   ├── BlockchainController.java            ← Blockchain REST APIs (/api/blockchain/**)
+│   │   │   │   └── QRController.java                    ← QR code REST APIs (/api/qr/**)
 │   │   │   ├── dto/
-│   │   │   │   ├── CertificateVerificationRequest.java  ← Verification request DTO
+│   │   │   │   ├── CertificateVerificationRequest.java  ← Canonical verification request DTO
 │   │   │   │   └── CertificateVerificationResponse.java ← Structured verification result DTO
+│   │   │   ├── qr/
+│   │   │   │   ├── QRCodeGenerator.java                 ← ZXing QR generator and decoder
+│   │   │   │   ├── QRService.java                       ← QR generation, payload handling & verification
+│   │   │   │   ├── QRVerificationPayload.java           ← Non-sensitive QR payload encoder/decoder
+│   │   │   │   ├── QRVerificationRequest.java           ← QR verification request DTO
+│   │   │   │   └── QRVerificationResponse.java          ← QR verification response DTO
 │   │   │   ├── service/
 │   │   │   │   ├── CertificateService.java              ← Issuance, verification & revocation logic
 │   │   │   │   └── BlockchainService.java               ← Blockchain operations
 │   │   │   ├── model/
-│   │   │   │   ├── Certificate.java                     ← Certificate entity
+│   │   │   │   ├── Certificate.java                     ← Certificate entity (includes qrCodeData)
 │   │   │   │   ├── Block.java                           ← Blockchain block entity
 │   │   │   │   └── AuditLog.java                        ← Audit log entity
 │   │   │   ├── repository/
@@ -64,20 +71,19 @@ certificate-verification/
 │   │   │   │   └── HashUtil.java                        ← SHA-256 canonical hashing utility
 │   │   │   ├── security/
 │   │   │   │   └── DigitalSignatureManager.java         ← RSA signatures
-│   │   │   ├── qr/
-│   │   │   │   └── QRCodeGenerator.java                 ← QR code generation
 │   │   │   ├── offline/
-│   │   │   │   └── OfflineVerificationManager.java      ← Offline verification
+│   │   │   │   └── OfflineVerificationManager.java      ← Offline verification manager
 │   │   │   └── config/
 │   │   │       ├── WebConfig.java                       ← MVC configuration
 │   │   │       └── DatabaseConfig.java                  ← Database configuration
 │   │   └── resources/
 │   │       ├── templates/
-│   │       │   ├── index.html                           ← Homepage with quick verification action
+│   │       │   ├── index.html                           ← Homepage with quick verification actions
 │   │       │   ├── issue.html                           ← Certificate issuance form
-│   │       │   ├── verify.html                          ← Certificate verification & fraud detection page
+│   │       │   ├── verify.html                          ← Canonical certificate verification page
+│   │       │   ├── qr-verify.html                       ← QR code certificate verification page
 │   │       │   ├── certificates.html                    ← Certificate management table
-│   │       │   ├── certificate-details.html             ← Certificate detail & verify link
+│   │       │   ├── certificate-details.html             ← Certificate detail & QR code display
 │   │       │   ├── blockchain.html                      ← Blockchain explorer & validator
 │   │       │   ├── about.html                           ← Project overview
 │   │       │   └── error.html                           ← Error page
@@ -90,79 +96,80 @@ certificate-verification/
 │           ├── CertificateVerificationApplicationTests.java
 │           ├── CertificateManagementIntegrationTests.java
 │           ├── BlockchainIntegrationTests.java
-│           └── CertificateVerificationIntegrationTests.java
+│           ├── CertificateVerificationIntegrationTests.java
+│           └── QRVerificationIntegrationTests.java
 ├── pom.xml                                              ← Maven configuration
 └── README.md
 ```
 
 ---
 
-## Day 4 Implementation - Certificate Verification and Fraud Detection
+## Day 5 Implementation - QR Code Certificate Verification
 
-Day 4 delivers robust, cryptographic verification and fraud/tamper detection using the local blockchain ledger:
+Day 5 delivers full cryptographic QR Code generation, non-sensitive credential encoding, and offline-capable verification:
 
 ### Key Features Implemented:
-- [x] **Verify Certificate Page (`/verify`)**:
-  - Light, responsive, user-friendly UI allowing entry of:
-    - **Certificate ID**
-    - **Student Name**
-    - **Course Name**
-    - **Institution**
-    - **Issue Date**
-- [x] **Identical Canonical SHA-256 Hashing**:
-  - Uses the exact deterministic canonical format as certificate issuance:
-    `id:<id>|student:<student>|course:<course>|institution:<institution>|type:<type>|issueDate:<date>|expiryDate:<expiry>`
-  - SHA-256 generated directly via standard `java.security.MessageDigest`.
-- [x] **Blockchain Ledger Search & Verification Logic**:
-  1. **Certificate ID not found**:
-     `Result = "Certificate Not Found / Potentially Fake"`
-  2. **Certificate ID found and hash matches**:
-     `Result = "GENUINE CERTIFICATE"`
-  3. **Certificate ID found but hash does not match**:
-     `Result = "TAMPERED CERTIFICATE"`
-  4. **Certificate is revoked**:
-     `Result = "REVOKED CERTIFICATE"`
-- [x] **Clear Verification Result Display**:
-  - Color-coded verdict banner: Green (Genuine), Red (Tampered), Orange/Amber (Revoked), Slate (Not Found)
-  - Detailed comparison table showing:
-    - **Certificate ID**
-    - **Student**
-    - **Institution**
-    - **Course**
-    - **Blockchain Hash**
-    - **Calculated Hash**
-    - **Blockchain Match** (`MATCH` / `MISMATCH`)
-    - **Certificate Status** (`ISSUED` / `REVOKED` / `TAMPERED` / `NOT_FOUND`)
-- [x] **REST API Endpoint (`POST /api/certificates/verify`)**:
-  - Structured JSON request & response.
-- [x] **Audit Logging**:
-  - Every verification attempt is automatically recorded in the `audit_logs` SQLite table with certificate ID, action (`VERIFIED` / `FAILED_VERIFICATION`), requester IP address, timestamp, and calculated vs blockchain hash details.
-- [x] **Automated Tests**:
-  - 27 passing tests across all test suites, including thorough verification tests for genuine, modified/tampered, missing, and revoked scenarios.
+- [x] **ZXing QR Code Engine (`QRCodeGenerator`)**:
+  - Encodes and decodes QR codes as PNG byte arrays and Base64 Data URIs (`data:image/png;base64,...`).
+  - Supports decoding from camera uploads, image files, or raw Base64 data.
+- [x] **Automatic QR Generation on Issuance**:
+  - Automatically generates a QR code when a certificate is issued.
+  - Stores the Base64 image in `certificate.qrCodeData`.
+- [x] **Privacy-First Non-Sensitive QR Payload (`QRVerificationPayload`)**:
+  - Encodes strictly the **Certificate ID** and the **blockchain verification reference** (SHA-256 hash).
+  - **Does NOT expose** student name, course, institution, grades, or personal details in the QR code.
+- [x] **Certificate Details QR Display (`certificate-details.html`)**:
+  - Displays the generated QR code prominently alongside certificate credentials.
+  - "Download QR" action to save the QR PNG.
+  - "Regenerate QR" and "Verify Using QR" shortcut buttons.
+- [x] **QR Verification Page (`qr-verify.html` / `/verify-qr`)**:
+  - Light, clean, professional interface offering three verification modes:
+    1. Enter/paste scanned QR value or JSON payload.
+    2. Enter Certificate ID manually.
+    3. Upload QR code image file (PNG/JPEG) for automated decoding.
+- [x] **Simple, High-Level Verification Verdicts**:
+  - **Genuine**: Verified against local blockchain ledger.
+  - **Tampered**: QR reference or database hash does not match immutable blockchain block.
+  - **Not Found**: Certificate ID not present on the blockchain ledger.
+  - **Revoked**: Certificate has been formally revoked by issuer.
+  - **Invalid QR Code**: Malformed, empty, or unreadable QR data.
+- [x] **Offline Capability**:
+  - Verification operates locally against the SQLite blockchain database without needing internet access.
+- [x] **QR REST APIs (`QRController`)**:
+  - `POST /api/qr/generate/{certificateId}`: Generate or regenerate QR code
+  - `GET /api/qr/{certificateId}`: Retrieve QR code and payload
+  - `POST /api/qr/verify`: Verify certificate via QR value or manual ID
+  - `POST /api/qr/decode`: Decode image to QR text
+- [x] **Full Automated Test Suite**:
+  - 39 passing tests across all test suites, including 12 dedicated tests in `QRVerificationIntegrationTests`.
 
 ---
 
 ## REST API Specification
 
-### 1. Verify Certificate
+### 1. Verify QR Code
 
-**Endpoint:** `POST /api/certificates/verify`
+**Endpoint:** `POST /api/qr/verify`
 
-**Request Body:**
+**Request Body (Scanned QR):**
 ```json
 {
-  "certificateId": "CERT-2024-001",
-  "studentName": "John Doe",
-  "courseName": "B.Tech Computer Science",
-  "institutionName": "State University",
-  "issueDate": "2024-06-01"
+  "qrValue": "{\"certId\":\"CERT-2024-001\",\"ref\":\"4e6dc2ce6b5a3bb42312009529fea381672063ae60d72720560c93b6dbc05a17\"}"
+}
+```
+
+**Request Body (Manual ID):**
+```json
+{
+  "certificateId": "CERT-2024-001"
 }
 ```
 
 **Response (`200 OK` - Genuine):**
 ```json
 {
-  "result": "GENUINE CERTIFICATE",
+  "result": "Genuine",
+  "status": "GENUINE",
   "certificateId": "CERT-2024-001",
   "student": "John Doe",
   "studentName": "John Doe",
@@ -172,11 +179,10 @@ Day 4 delivers robust, cryptographic verification and fraud/tamper detection usi
   "courseName": "B.Tech Computer Science",
   "issueDate": "2024-06-01",
   "blockchainHash": "4e6dc2ce6b5a3bb42312009529fea381672063ae60d72720560c93b6dbc05a17",
-  "calculatedHash": "4e6dc2ce6b5a3bb42312009529fea381672063ae60d72720560c93b6dbc05a17",
+  "qrReference": "4e6dc2ce6b5a3bb42312009529fea381672063ae60d72720560c93b6dbc05a17",
   "blockchainMatch": true,
-  "certificateStatus": "ISSUED",
   "verified": true,
-  "message": "Certificate is authentic and matches the blockchain ledger.",
+  "message": "Certificate verified as genuine against the local blockchain.",
   "timestamp": "2024-06-01T10:00:00"
 }
 ```
@@ -184,46 +190,23 @@ Day 4 delivers robust, cryptographic verification and fraud/tamper detection usi
 **Response (`200 OK` - Tampered):**
 ```json
 {
-  "result": "TAMPERED CERTIFICATE",
+  "result": "Tampered",
+  "status": "TAMPERED",
   "certificateId": "CERT-2024-001",
-  "student": "Fake Imposter",
-  "studentName": "Fake Imposter",
-  "institution": "State University",
-  "institutionName": "State University",
-  "course": "B.Tech Computer Science",
-  "courseName": "B.Tech Computer Science",
-  "issueDate": "2024-06-01",
-  "blockchainHash": "4e6dc2ce6b5a3bb42312009529fea381672063ae60d72720560c93b6dbc05a17",
-  "calculatedHash": "9b12a88487b32c...",
   "blockchainMatch": false,
-  "certificateStatus": "TAMPERED",
   "verified": false,
-  "message": "Certificate data does not match the immutable hash recorded on the blockchain.",
-  "timestamp": "2024-06-01T10:00:00"
+  "message": "Tampering detected! The QR verification reference does not match the immutable blockchain ledger."
 }
 ```
 
 **Response (`200 OK` - Revoked):**
 ```json
 {
-  "result": "REVOKED CERTIFICATE",
+  "result": "Revoked",
+  "status": "REVOKED",
   "certificateId": "CERT-2024-001",
-  "certificateStatus": "REVOKED",
   "verified": false,
   "message": "Certificate has been formally revoked by the issuing authority."
-}
-```
-
-**Response (`200 OK` - Not Found / Fake):**
-```json
-{
-  "result": "Certificate Not Found / Potentially Fake",
-  "certificateId": "CERT-UNKNOWN",
-  "blockchainHash": "N/A",
-  "blockchainMatch": false,
-  "certificateStatus": "NOT_FOUND",
-  "verified": false,
-  "message": "Certificate ID 'CERT-UNKNOWN' was not found on the blockchain ledger."
 }
 ```
 
@@ -240,7 +223,7 @@ Day 4 delivers robust, cryptographic verification and fraud/tamper detection usi
 ### Steps
 
 ```bash
-# 1. Build the project and run tests
+# 1. Build project and run all 39 tests
 mvn clean test
 
 # 2. Run the application
@@ -254,10 +237,11 @@ The application starts on **http://localhost:8080**
 | URL | Description |
 |---|---|
 | `http://localhost:8080/` | Homepage with quick actions |
-| `http://localhost:8080/verify` | **Verify Certificate (Day 4)** |
-| `http://localhost:8080/issue` | Issue Certificate form |
+| `http://localhost:8080/verify-qr` | **QR Code Certificate Verification (Day 5)** |
+| `http://localhost:8080/verify` | Data Verification (Canonical Hashing) |
+| `http://localhost:8080/issue` | Issue Certificate form (auto-generates QR) |
 | `http://localhost:8080/certificates` | Certificate Management (All Certificates) |
-| `http://localhost:8080/certificate/{id}` | Certificate Details page with blockchain hash & verify button |
+| `http://localhost:8080/certificate/{id}` | Certificate Details with QR code display & download |
 | `http://localhost:8080/blockchain` | Blockchain Explorer & Chain Validator |
 | `http://localhost:8080/about` | About page |
 
@@ -265,24 +249,18 @@ The application starts on **http://localhost:8080**
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/certificates/verify` | **Verify certificate and detect tampering/fraud (Day 4)** |
+| `POST` | `/api/qr/verify` | **Verify certificate via QR code or manual ID (Day 5)** |
+| `POST` | `/api/qr/generate/{id}` | **Generate QR code for certificate (Day 5)** |
+| `GET` | `/api/qr/{id}` | **Get QR code data & payload (Day 5)** |
+| `POST` | `/api/qr/decode` | **Decode QR image to text (Day 5)** |
+| `POST` | `/api/certificates/verify` | Verify certificate credentials via canonical hash |
 | `GET` | `/api/certificates` | List all certificates |
-| `POST` | `/api/certificates` | Issue a certificate (anchored to blockchain) |
+| `POST` | `/api/certificates` | Issue a certificate (auto-generates blockchain block & QR) |
 | `GET` | `/api/certificates/{id}` | Get certificate by Certificate ID |
 | `POST` | `/api/certificates/{id}/revoke` | Revoke certificate |
-| `GET` | `/api/certificates/health` | Certificate API health check |
 | `GET` | `/api/blockchain` | Get all blockchain blocks |
 | `POST` | `/api/blockchain/add` | Add a new block to blockchain |
 | `GET` | `/api/blockchain/validate` | Validate blockchain integrity |
-
----
-
-## Planned Features (Day 5+)
-
-- [ ] RSA digital signatures
-- [ ] QR code generation with ZXing
-- [ ] Offline verification via QR scan
-- [ ] Audit trail dashboard UI
 
 ---
 
@@ -294,6 +272,7 @@ The application starts on **http://localhost:8080**
 | `Day 2` | Certificate issuing module |
 | `Day 3` | Java blockchain implementation |
 | `Day 4` | Certificate verification and fraud detection |
+| `Day 5` | QR code certificate verification |
 
 ---
 
