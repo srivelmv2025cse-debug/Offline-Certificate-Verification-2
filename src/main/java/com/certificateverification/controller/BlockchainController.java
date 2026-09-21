@@ -3,6 +3,8 @@ package com.certificateverification.controller;
 import com.certificateverification.blockchain.Blockchain;
 import com.certificateverification.blockchain.HashUtil;
 import com.certificateverification.model.Block;
+import com.certificateverification.service.AuditLogService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,16 +17,23 @@ import java.util.Map;
 /**
  * REST API controller for blockchain operations.
  * Day 3: Custom Java blockchain endpoints for adding blocks, viewing chain, and validation.
+ * Day 7: Integrated audit logging for blockchain ledger validation events.
  */
 @RestController
 @RequestMapping("/api/blockchain")
 public class BlockchainController {
 
     private final Blockchain blockchain;
+    private final AuditLogService auditLogService;
+
+    public BlockchainController(Blockchain blockchain) {
+        this(blockchain, null);
+    }
 
     @Autowired
-    public BlockchainController(Blockchain blockchain) {
+    public BlockchainController(Blockchain blockchain, @Autowired(required = false) AuditLogService auditLogService) {
         this.blockchain = blockchain;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -43,8 +52,20 @@ public class BlockchainController {
      * @return 200 OK with validation status ("Blockchain Valid" or "Blockchain Tampered")
      */
     @GetMapping("/validate")
-    public ResponseEntity<Map<String, Object>> validateBlockchain() {
+    public ResponseEntity<Map<String, Object>> validateBlockchain(HttpServletRequest request) {
         boolean isValid = blockchain.isChainValid();
+        String ipAddress = request != null ? request.getRemoteAddr() : "127.0.0.1";
+
+        if (auditLogService != null) {
+            auditLogService.log(
+                    "BLOCKCHAIN_LEDGER",
+                    "BLOCKCHAIN_VALIDATION",
+                    isValid ? "VALID" : "TAMPERED",
+                    "Blockchain validation executed for " + blockchain.getChainSize() + " block(s). Result: " + (isValid ? "VALID" : "TAMPERED"),
+                    ipAddress
+            );
+        }
+
         Map<String, Object> response = new HashMap<>();
         response.put("valid", isValid);
         response.put("status", isValid ? "Blockchain Valid" : "Blockchain Tampered");

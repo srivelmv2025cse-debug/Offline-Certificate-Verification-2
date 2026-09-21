@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Revocation system for institutions and administrators to revoke certificates.">
+    <title th:text="${pageTitle}">Revoke Certificate - Authority Portal</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .revoke-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .card {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        .search-form-group {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-sm);
+        }
+        .search-form-input {
+            flex: 1;
+            padding: 0.65rem 0.9rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+        }
+        .cert-preview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+        .cert-field {
+            background-color: var(--color-surface-2);
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--color-border-light);
+        }
+        .cert-field-label {
+            font-size: 0.78rem;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+        }
+        .cert-field-val {
+            font-size: 0.95rem;
+            color: var(--color-text-primary);
+            font-weight: 500;
+        }
+        .status-pill {
+            display: inline-block;
+            padding: 0.25rem 0.65rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+        .status-pill.valid, .status-pill.issued {
+            background-color: #e6f4ea;
+            color: #137333;
+            border: 1px solid #ceead6;
+        }
+        .status-pill.revoked {
+            background-color: #fce8e6;
+            color: #c5221f;
+            border: 1px solid #fad2cf;
+        }
+        .status-pill.expired {
+            background-color: #fff0d4;
+            color: #b06000;
+            border: 1px solid #fedfc0;
+        }
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: var(--spacing-xs);
+            color: var(--color-text-primary);
+        }
+        .form-control {
+            width: 100%;
+            padding: 0.65rem 0.9rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+        .reason-chips {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+            margin-bottom: var(--spacing-md);
+        }
+        .reason-chip {
+            background-color: var(--color-surface-2);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            padding: 0.2rem 0.6rem;
+            font-size: 0.78rem;
+            cursor: pointer;
+            color: var(--color-text-secondary);
+            transition: var(--transition);
+        }
+        .reason-chip:hover {
+            background-color: var(--color-accent-light);
+            color: var(--color-accent);
+            border-color: var(--color-accent);
+        }
+        .btn-danger {
+            background-color: #d93025;
+            color: white;
+            border: none;
+            padding: 0.65rem 1.5rem;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-danger:hover {
+            background-color: #b3261e;
+        }
+        .alert-error {
+            color: #c62828;
+            background-color: #ffebee;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-lg);
+            border: 1px solid #ffcdd2;
+        }
+        .alert-success {
+            color: #2e7d32;
+            background-color: #e8f5e9;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-lg);
+            border: 1px solid #c8e6c9;
+        }
+        .mono {
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========== HEADER / NAVIGATION ========== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon">&#128196;</span>
+                <span class="brand-name">Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <nav class="nav" id="main-nav" aria-label="Main navigation">
+                <ul class="nav-list">
+                    <li><a href="/" class="nav-link" id="nav-home">Home</a></li>
+                    <li><a href="/verify" class="nav-link" id="nav-verify">Verify Certificate</a></li>
+                    <li><a href="/verify-qr" class="nav-link" id="nav-verify-qr">QR Verify</a></li>
+                    <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
+                    <li><a href="/certificates" class="nav-link" id="nav-certificates">Manage Certificates</a></li>
+                    <li><a href="/revoke" class="nav-link active" id="nav-revoke">Revoke</a></li>
+                    <li><a href="/blockchain" class="nav-link" id="nav-blockchain">Blockchain</a></li>
+                    <li><a href="/audit" class="nav-link" id="nav-audit">Audit Trail</a></li>
+                    <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-hero">
+            <div class="container">
+                <h1 class="page-title">Certificate Revocation System</h1>
+                <p class="page-sub">Institutional portal to search, inspect, and formally revoke certificates with documented reasons.</p>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="container revoke-container">
+
+                <div th:if="${successMessage}" class="alert-success" th:text="${successMessage}"></div>
+                <div th:if="${errorMessage}" class="alert-error" th:text="${errorMessage}"></div>
+                <div th:if="${notFoundMessage}" class="alert-error" th:text="${notFoundMessage}"></div>
+
+                <!-- 1. Search Box -->
+                <div class="card">
+                    <h2 style="font-size: 1.15rem; margin-bottom: 0.4rem;">Step 1: Search Certificate to Revoke</h2>
+                    <p style="color: var(--color-text-secondary); font-size: 0.9rem; margin-bottom: var(--spacing-sm);">
+                        Enter the unique Certificate ID (e.g., <code class="mono">CERT-1001</code>) to retrieve its status.
+                    </p>
+                    <form method="get" action="/revoke">
+                        <div class="search-form-group">
+                            <input type="text" name="certificateId" th:value="${searchId}" class="search-form-input mono" placeholder="e.g. CERT-2024-001" required>
+                            <button type="submit" class="btn btn-primary">Find Certificate</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 2. Certificate Preview & Revocation Action -->
+                <div th:if="${foundCertificate != null}" class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border-light); padding-bottom: 0.75rem;">
+                        <h2 style="font-size: 1.15rem; margin: 0;">Step 2: Certificate Inspection</h2>
+                        <span th:class="'status-pill ' + ${#strings.toLowerCase(foundCertificate.effectiveStatus)}" th:text="${foundCertificate.effectiveStatus}">VALID</span>
+                    </div>
+
+                    <div class="cert-preview-grid">
+                        <div class="cert-field">
+                            <div class="cert-field-label">Certificate ID</div>
+                            <div class="cert-field-val mono" th:text="${foundCertificate.certificateId}">CERT-001</div>
+                        </div>
+                        <div class="cert-field">
+                            <div class="cert-field-label">Student Name</div>
+                            <div class="cert-field-val" th:text="${foundCertificate.studentName}">John Doe</div>
+                        </div>
+                        <div class="cert-field">
+                            <div class="cert-field-label">Course / Degree</div>
+                            <div class="cert-field-val" th:text="${foundCertificate.courseName}">Computer Science</div>
+                        </div>
+                        <div class="cert-field">
+                            <div class="cert-field-label">Issuing Institution</div>
+                            <div class="cert-field-val" th:text="${foundCertificate.institutionName}">Tech University</div>
+                        </div>
+                        <div class="cert-field">
+                            <div class="cert-field-label">Issue Date</div>
+                            <div class="cert-field-val" th:text="${foundCertificate.issueDate}">2024-01-15</div>
+                        </div>
+                        <div class="cert-field">
+                            <div class="cert-field-label">Expiry Date</div>
+                            <div class="cert-field-val" th:text="${foundCertificate.expiryDate != null ? foundCertificate.expiryDate : 'None (Lifetime)'}">None</div>
+                        </div>
+                    </div>
+
+                    <!-- Already Revoked Notice -->
+                    <div th:if="${foundCertificate.effectiveStatus == 'REVOKED'}" style="background-color: #fce8e6; border: 1px solid #fad2cf; padding: 1rem; border-radius: var(--radius-sm); color: #c5221f;">
+                        <strong>&#9888; This certificate is already REVOKED.</strong>
+                        <div style="margin-top: 0.4rem; font-size: 0.9rem;">
+                            <div><strong>Revocation Reason:</strong> <span th:text="${foundCertificate.revocationReason != null ? foundCertificate.revocationReason : 'No reason provided'}">Reason</span></div>
+                            <div th:if="${foundCertificate.revocationTimestamp != null}" style="margin-top: 0.2rem;">
+                                <strong>Revoked At:</strong> <span class="mono" th:text="${#temporals.format(foundCertificate.revocationTimestamp, 'yyyy-MM-dd HH:mm:ss')}">2026-09-21 12:00:00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Revoke Form if NOT revoked -->
+                    <form th:if="${foundCertificate.effectiveStatus != 'REVOKED'}" method="post" action="/revoke" onsubmit="return confirm('WARNING: Revoking a certificate cannot be undone and will be permanently recorded on the immutable audit trail. Proceed?');">
+                        <input type="hidden" name="certificateId" th:value="${foundCertificate.certificateId}">
+
+                        <div style="margin-top: var(--spacing-md);">
+                            <label class="form-label" for="reasonInput">Revocation Reason <span style="color: #c5221f;">*</span></label>
+                            <input type="text" id="reasonInput" name="reason" class="form-control" placeholder="Enter reason for revocation..." required>
+                            
+                            <div style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 0.4rem;">Quick suggestions:</div>
+                            <div class="reason-chips">
+                                <span class="reason-chip" onclick="setReason('Administrative recall / Issued in error')">Issued in error</span>
+                                <span class="reason-chip" onclick="setReason('Academic dishonesty / Honor code violation')">Honor code violation</span>
+                                <span class="reason-chip" onclick="setReason('Degree annulled by Academic Council')">Degree annulled</span>
+                                <span class="reason-chip" onclick="setReason('Duplicate record replacement')">Duplicate record</span>
+                                <span class="reason-chip" onclick="setReason('Disciplinary action')">Disciplinary action</span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: var(--spacing-lg);">
+                            <a th:href="@{'/certificate/' + ${foundCertificate.certificateId}}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn-danger">Confirm Revoke Certificate</button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <span class="brand-icon">&#128196;</span>
+                <span>Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <p class="footer-sub">Java Project</p>
+            <p class="footer-copy">&copy; 2024 Certificate Verification System. College Project Demonstration.</p>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js}"></script>
+    <script>
+        function setReason(text) {
+            var input = document.getElementById('reasonInput');
+            if (input) {
+                input.value = text;
+                input.focus();
+            }
+        }
+    </script>
+</body>
+</html>

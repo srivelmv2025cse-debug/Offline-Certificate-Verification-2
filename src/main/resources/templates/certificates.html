@@ -141,7 +141,9 @@
                     <li><a href="/verify-qr" class="nav-link" id="nav-verify-qr">QR Verify</a></li>
                     <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
                     <li><a href="/certificates" class="nav-link active" id="nav-certificates">Manage Certificates</a></li>
+                    <li><a href="/revoke" class="nav-link" id="nav-revoke">Revoke</a></li>
                     <li><a href="/blockchain" class="nav-link" id="nav-blockchain">Blockchain</a></li>
+                    <li><a href="/audit" class="nav-link" id="nav-audit">Audit Trail</a></li>
                     <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
                 </ul>
             </nav>
@@ -168,15 +170,22 @@
                 <div class="management-header">
                     <div>
                         <strong th:text="${#lists.size(certificates)}">0</strong> certificates total
+                        <span th:if="${searchQuery}" th:text="' matching \'' + ${searchQuery} + '\''" style="color: var(--color-accent);"></span>
                     </div>
-                    <div>
-                        <a href="/issue" class="btn btn-primary">+ Issue New Certificate</a>
+                    <div style="display: flex; gap: var(--spacing-sm); align-items: center; flex-wrap: wrap;">
+                        <form method="get" action="/certificates" style="display: flex; gap: 0.3rem;">
+                            <input type="text" name="search" th:value="${searchQuery}" placeholder="Search ID, Student, School..." style="padding: 0.4rem 0.7rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 0.88rem;">
+                            <button type="submit" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.88rem;">Search</button>
+                            <a th:if="${searchQuery}" href="/certificates" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.88rem;">Clear</a>
+                        </form>
+                        <a href="/revoke" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.88rem;">Revocation Portal</a>
+                        <a href="/issue" class="btn btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.88rem;">+ Issue Certificate</a>
                     </div>
                 </div>
 
                 <div class="cert-table-card">
                     <div th:if="${#lists.isEmpty(certificates)}" class="empty-state">
-                        <p>No certificates have been issued yet.</p>
+                        <p>No certificates found.</p>
                         <a href="/issue" class="btn btn-primary">Issue First Certificate</a>
                     </div>
 
@@ -195,22 +204,23 @@
                         </thead>
                         <tbody>
                             <tr th:each="cert : ${certificates}">
-                                <td class="mono" th:text="${cert.certificateId}">CERT-001</td>
+                                <td class="mono">
+                                    <a th:href="@{'/certificate/' + ${cert.certificateId}}" th:text="${cert.certificateId}">CERT-001</a>
+                                </td>
                                 <td th:text="${cert.studentName}">John Doe</td>
                                 <td th:text="${cert.courseName}">Computer Science</td>
                                 <td th:text="${cert.institutionName}">State University</td>
                                 <td th:text="${cert.certificateType}">Degree</td>
                                 <td th:text="${cert.issueDate}">2024-01-15</td>
                                 <td>
-                                    <span th:class="'status-badge ' + ${#strings.toLowerCase(cert.status)}" th:text="${cert.status}">ISSUED</span>
+                                    <span th:class="'status-badge ' + ${#strings.toLowerCase(cert.effectiveStatus)}" th:text="${cert.effectiveStatus}">VALID</span>
+                                    <div th:if="${cert.effectiveStatus == 'REVOKED' && cert.revocationReason != null}" style="font-size: 0.75rem; color: #c5221f; margin-top: 0.2rem;" th:text="${'Reason: ' + cert.revocationReason}"></div>
                                 </td>
                                 <td>
                                     <div class="table-actions">
                                         <a th:href="@{'/certificate/' + ${cert.certificateId}}" class="btn-table btn-table-view">View</a>
                                         <a th:href="@{'/verify?certificateId=' + ${cert.certificateId}}" class="btn-table btn-table-view" style="color: var(--color-accent); font-weight: 600;">Verify</a>
-                                        <form th:if="${cert.status != 'REVOKED'}" th:action="@{'/certificates/' + ${cert.certificateId} + '/revoke'}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to revoke this certificate?');">
-                                            <button type="submit" class="btn-table btn-table-revoke">Revoke</button>
-                                        </form>
+                                        <a th:if="${cert.effectiveStatus != 'REVOKED'}" th:href="@{'/revoke?certificateId=' + ${cert.certificateId}}" class="btn-table btn-table-revoke">Revoke</a>
                                     </div>
                                 </td>
                             </tr>

@@ -204,7 +204,8 @@ public class QRService {
 
         // Log audit event
         String auditAction = verified ? "VERIFIED_QR" : "FAILED_QR_VERIFICATION";
-        logAudit(certId, auditAction, "Result: " + result + " | ref=" + qrRef + " | blockHash=" + blockchainHash, ipAddress);
+        String auditResult = verified ? "SUCCESS" : "FAILED";
+        logAudit(certId, auditAction, auditResult, "Result: " + result + " | ref=" + qrRef + " | blockHash=" + blockchainHash, ipAddress);
 
         return QRVerificationResponse.builder()
                 .result(result)
@@ -236,10 +237,16 @@ public class QRService {
     }
 
     private void logAudit(String certificateId, String action, String details, String ipAddress) {
+        String defaultResult = action != null && action.startsWith("VERIFIED") ? "SUCCESS" : "FAILED";
+        logAudit(certificateId, action, defaultResult, details, ipAddress);
+    }
+
+    private void logAudit(String certificateId, String action, String result, String details, String ipAddress) {
         try {
             AuditLog auditLog = new AuditLog();
             auditLog.setCertificateId(certificateId);
             auditLog.setAction(action);
+            auditLog.setResult(result);
             auditLog.setIpAddress(ipAddress != null ? ipAddress : "127.0.0.1");
             auditLog.setDetails(details);
             auditLog.setTimestamp(LocalDateTime.now());

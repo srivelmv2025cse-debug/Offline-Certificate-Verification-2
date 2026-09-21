@@ -401,6 +401,45 @@ ul {
     border: 1px solid #a5d6a7;
 }
 
+.cert-status-badge.revoked {
+    background-color: #fce8e6;
+    color: #c5221f;
+    border: 1px solid #fad2cf;
+}
+
+.cert-status-badge.expired {
+    background-color: #fff0d4;
+    color: #b06000;
+    border: 1px solid #fedfc0;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.status-badge.valid, .status-badge.issued {
+    background-color: #e6f4ea;
+    color: #137333;
+    border: 1px solid #ceead6;
+}
+
+.status-badge.revoked {
+    background-color: #fce8e6;
+    color: #c5221f;
+    border: 1px solid #fad2cf;
+}
+
+.status-badge.expired {
+    background-color: #fff0d4;
+    color: #b06000;
+    border: 1px solid #fedfc0;
+}
+
 /* ============================================================
    SECTION COMMON
    ============================================================ */

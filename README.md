@@ -41,8 +41,9 @@ certificate-verification/
 │   │   ├── java/com/certificateverification/
 │   │   │   ├── CertificateVerificationApplication.java  ← Main entry point
 │   │   │   ├── controller/
-│   │   │   │   ├── HomeController.java                  ← Serves HTML pages
+│   │   │   │   ├── HomeController.java                  ← Serves HTML pages (including /audit, /revoke)
 │   │   │   │   ├── CertificateController.java           ← REST API endpoints (/api/certificates/**)
+│   │   │   │   ├── AuditLogController.java              ← Day 7: Audit REST APIs (/api/audit-logs/**)
 │   │   │   │   ├── BlockchainController.java            ← Blockchain REST APIs (/api/blockchain/**)
 │   │   │   │   └── QRController.java                    ← QR code REST APIs (/api/qr/**)
 │   │   │   ├── dto/
@@ -59,15 +60,16 @@ certificate-verification/
 │   │   │   │   └── QRVerificationResponse.java          ← QR verification response DTO
 │   │   │   ├── service/
 │   │   │   │   ├── CertificateService.java              ← Issuance, verification & revocation logic
+│   │   │   │   ├── AuditLogService.java                 ← Day 7: Audit log management & queries
 │   │   │   │   └── BlockchainService.java               ← Blockchain operations
 │   │   │   ├── model/
-│   │   │   │   ├── Certificate.java                     ← Certificate entity
+│   │   │   │   ├── Certificate.java                     ← Certificate entity (status, reason, timestamp)
 │   │   │   │   ├── Block.java                           ← Blockchain block entity
-│   │   │   │   └── AuditLog.java                        ← Audit log entity
+│   │   │   │   └── AuditLog.java                        ← Day 7: Full Audit log entity
 │   │   │   ├── repository/
-│   │   │   │   ├── CertificateRepository.java           ← Certificate DB access
+│   │   │   │   ├── CertificateRepository.java           ← Certificate DB access (search & status queries)
 │   │   │   │   ├── BlockRepository.java                 ← Blockchain DB access
-│   │   │   │   └── AuditLogRepository.java              ← Audit log DB access
+│   │   │   │   └── AuditLogRepository.java              ← Day 7: Audit log DB access
 │   │   │   ├── blockchain/
 │   │   │   │   ├── Blockchain.java                      ← Core in-memory & SQLite blockchain
 │   │   │   │   ├── BlockchainManager.java               ← Blockchain manager facade
@@ -85,13 +87,15 @@ certificate-verification/
 │   │       │   ├── issue.html                           ← Certificate issuance form
 │   │       │   ├── verify.html                          ← Certificate verification (3-factor)
 │   │       │   ├── qr-verify.html                       ← QR code verification page
-│   │       │   ├── certificates.html                    ← Certificate management table
-│   │       │   ├── certificate-details.html             ← Certificate detail & QR & signature display
+│   │       │   ├── certificates.html                    ← Certificate management & search
+│   │       │   ├── certificate-details.html             ← Certificate detail & revocation display
+│   │       │   ├── revoke.html                          ← Day 7: Certificate revocation portal
+│   │       │   ├── audit.html                           ← Day 7: Audit trail table UI
 │   │       │   ├── blockchain.html                      ← Blockchain explorer & validator
 │   │       │   ├── about.html                           ← Project overview
 │   │       │   └── error.html                           ← Error page
 │   │       ├── static/
-│   │       │   ├── css/style.css                        ← Stylesheet
+│   │       │   ├── css/style.css                        ← Stylesheet (light theme & status badges)
 │   │       │   └── js/main.js                           ← Frontend JavaScript
 │   │       └── application.properties                   ← App configuration
 │   └── test/
@@ -101,14 +105,61 @@ certificate-verification/
 │           ├── BlockchainIntegrationTests.java
 │           ├── CertificateVerificationIntegrationTests.java
 │           ├── QRVerificationIntegrationTests.java
-│           └── DigitalSignatureIntegrationTests.java     ← Day 6
+│           ├── DigitalSignatureIntegrationTests.java
+│           └── RevocationAndAuditIntegrationTests.java   ← Day 7
 ├── pom.xml                                              ← Maven configuration
 └── README.md
 ```
 
 ---
 
-## Day 6 Implementation - Digital Signature Security
+## Day 7 Implementation - Certificate Revocation and Audit Trail
+
+Day 7 delivers a comprehensive revocation management system and an immutable audit trail:
+
+### Key Features Implemented:
+
+- [x] **Certificate Revocation System**:
+  - Institutions/admins can search certificates by Certificate ID, Student Name, or Institution.
+  - Dedicated **Revocation Portal** (`/revoke`) allows finding certificates, inspecting credentials, and executing revocation.
+  - Mandatory or documented **Revocation Reason** entered during revocation (with quick reason suggestions).
+  - Exact **Revocation Timestamp** (`LocalDateTime`) recorded and persisted on the certificate entity.
+
+- [x] **Certificate Status Lifecycle**:
+  - **`VALID`**: Certificate is active, unrevoked, and unexpired.
+  - **`REVOKED`**: Certificate has been formally revoked by the issuing authority.
+  - **`EXPIRED`**: Certificate has passed its specified expiry date.
+  - Strict Rule: **A revoked certificate is NEVER reported as genuine** across web forms, REST APIs, or QR verification.
+  - Verification strictly returns `REVOKED CERTIFICATE` with `verified=false` and audit action `FAILED_VERIFICATION`.
+
+- [x] **Audit Trail System (`AuditLog`)**:
+  - Fully structured model with: `id`, `certificateId`, `action`, `timestamp`, `result`, `details` (and caller `ipAddress`).
+  - Automatically records all critical actions:
+    1. **Certificate Issuance**: `action=CERTIFICATE_ISSUANCE`, `result=SUCCESS`
+    2. **Certificate Verification**: `action=VERIFIED`, `result=SUCCESS`
+    3. **Failed Verification**: `action=FAILED_VERIFICATION`, `result=FAILED`
+    4. **Revocation**: `action=REVOCATION`, `result=SUCCESS`
+    5. **QR Verification**: `action=VERIFIED_QR` / `FAILED_QR_VERIFICATION`, `result=SUCCESS/FAILED`
+    6. **Blockchain Validation**: `action=BLOCKCHAIN_VALIDATION`, `result=VALID/TAMPERED`
+
+- [x] **Audit Trail Page (`audit.html` / `/audit`)**:
+  - Clean, light, responsive table displaying:
+    `Timestamp | Certificate ID | Action | Result`
+  - Quick filters for actions (Issuance, Verified Genuine, Failed Verification, Revocation, QR Verification, Blockchain Validation).
+  - Search input to filter audit logs by Certificate ID.
+
+- [x] **Audit Trail REST APIs (`AuditLogController`)**:
+  - `GET /api/audit-logs`: List all audit logs, with optional `?certificateId=...` and `?action=...` filtering.
+  - `GET /api/audit-logs/{id}`: Retrieve specific audit log by ID.
+  - `GET /api/audit-logs/certificate/{certificateId}`: Retrieve all logs for a certificate.
+  - `POST /api/certificates/{id}/revoke`: Revoke certificate with JSON body `{"reason": "..."}` or query param.
+  - `GET /api/certificates/search?query=...`: Search certificates.
+
+- [x] **Integration Test Suite (`RevocationAndAuditIntegrationTests.java`)**:
+  - 15 comprehensive tests covering revocation with reason & timestamp, status lifecycle, verification rejections, issuance/revocation/blockchain audit logging, REST APIs, and UI views.
+  - Total: **74 tests passing** across all test suites.
+
+---
 
 Day 6 adds RSA-2048 digital signatures to authenticate certificate issuance and strengthen verification to a full three-factor security model.
 
@@ -219,7 +270,7 @@ Day 5 delivers full cryptographic QR Code generation, non-sensitive credential e
 ### Steps
 
 ```bash
-# 1. Build project and run all 59 tests
+# 1. Build project and run all 74 tests
 mvn clean test
 
 # 2. Run the application
@@ -236,8 +287,10 @@ The application starts on **http://localhost:8080**
 | `http://localhost:8080/verify` | **Certificate Verification (3-Factor: Hash + Signature + Revocation)** |
 | `http://localhost:8080/verify-qr` | QR Code Certificate Verification |
 | `http://localhost:8080/issue` | Issue Certificate form (auto-generates QR & digital signature) |
-| `http://localhost:8080/certificates` | Certificate Management (All Certificates) |
-| `http://localhost:8080/certificate/{id}` | Certificate Details with QR code & signature status |
+| `http://localhost:8080/certificates` | Certificate Management with search & status indicators |
+| `http://localhost:8080/certificate/{id}` | Certificate Details with QR code, signature, and revocation status |
+| `http://localhost:8080/revoke` | **Day 7: Certificate Revocation Portal (search & revoke with reason)** |
+| `http://localhost:8080/audit` | **Day 7: Audit Trail (table of timestamp, cert ID, action, result)** |
 | `http://localhost:8080/blockchain` | Blockchain Explorer & Chain Validator |
 | `http://localhost:8080/about` | About page |
 
@@ -245,7 +298,12 @@ The application starts on **http://localhost:8080**
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/certificates/verify` | **Verify certificate (3-factor: hash + signature + revocation) (Day 6)** |
+| `POST` | `/api/certificates/verify` | Verify certificate (3-factor: hash + signature + revocation) |
+| `POST` | `/api/certificates/{id}/revoke` | **Revoke certificate with optional reason in body or query param (Day 7)** |
+| `GET` | `/api/certificates/search` | **Search certificates by ID, student, or institution (Day 7)** |
+| `GET` | `/api/audit-logs` | **Retrieve all audit trail entries with optional filtering (Day 7)** |
+| `GET` | `/api/audit-logs/{id}` | **Retrieve specific audit log entry by ID (Day 7)** |
+| `GET` | `/api/audit-logs/certificate/{id}` | **Retrieve audit logs for a specific certificate (Day 7)** |
 | `POST` | `/api/qr/verify` | Verify certificate via QR code or manual ID |
 | `POST` | `/api/qr/generate/{id}` | Generate QR code for certificate |
 | `GET` | `/api/qr/{id}` | Get QR code data & payload |
@@ -253,10 +311,9 @@ The application starts on **http://localhost:8080**
 | `GET` | `/api/certificates` | List all certificates |
 | `POST` | `/api/certificates` | Issue a certificate (auto-generates blockchain block, QR & signature) |
 | `GET` | `/api/certificates/{id}` | Get certificate by Certificate ID |
-| `POST` | `/api/certificates/{id}/revoke` | Revoke certificate |
 | `GET` | `/api/blockchain` | Get all blockchain blocks |
 | `POST` | `/api/blockchain/add` | Add a new block to blockchain |
-| `GET` | `/api/blockchain/validate` | Validate blockchain integrity |
+| `GET` | `/api/blockchain/validate` | Validate blockchain integrity (logs to audit trail) |
 
 ---
 
@@ -270,7 +327,8 @@ The application starts on **http://localhost:8080**
 | `Day 4` | Certificate verification and fraud detection |
 | `Day 5` | QR code certificate verification |
 | `Day 6` | Digital signature security |
+| `Day 7` | Revocation and audit trail |
 
 ---
 
-*College Project · Java 21 · Spring Boot · Blockchain · RSA Digital Signatures*
+*College Project · Java 21 · Spring Boot · Blockchain · RSA Digital Signatures · Audit Trail*

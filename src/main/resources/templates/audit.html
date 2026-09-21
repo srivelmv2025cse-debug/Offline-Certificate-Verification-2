@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Audit Trail for certificate issuance, verification, and revocation operations.">
+    <title th:text="${pageTitle}">Audit Trail - Certificate Verification</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .audit-container {
+            max-width: 1050px;
+            margin: 0 auto;
+        }
+        .audit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+        }
+        .audit-search-bar {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .audit-search-input {
+            padding: 0.5rem 0.85rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            min-width: 250px;
+        }
+        .audit-table-card {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            overflow-x: auto;
+            box-shadow: var(--shadow-sm);
+        }
+        .audit-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.92rem;
+        }
+        .audit-table th {
+            background-color: var(--color-surface-2);
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--color-border);
+            white-space: nowrap;
+        }
+        .audit-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--color-border-light);
+            vertical-align: middle;
+        }
+        .audit-table tr:hover {
+            background-color: rgba(26, 115, 232, 0.02);
+        }
+        .audit-table tr:last-child td {
+            border-bottom: none;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.55rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .badge-action {
+            background-color: #e8f0fe;
+            color: #1a73e8;
+            border: 1px solid #c2e7ff;
+        }
+        .badge-action.revocation {
+            background-color: #fce8e6;
+            color: #c5221f;
+            border: 1px solid #fad2cf;
+        }
+        .badge-action.issuance {
+            background-color: #e6f4ea;
+            color: #137333;
+            border: 1px solid #ceead6;
+        }
+        .badge-action.blockchain {
+            background-color: #f3e8fd;
+            color: #7627bb;
+            border: 1px solid #e1bdf8;
+        }
+        .badge-result-success, .badge-result-valid {
+            background-color: #e6f4ea;
+            color: #137333;
+            border: 1px solid #ceead6;
+        }
+        .badge-result-failed, .badge-result-tampered {
+            background-color: #fce8e6;
+            color: #c5221f;
+            border: 1px solid #fad2cf;
+        }
+        .badge-result-revoked {
+            background-color: #fff0d4;
+            color: #b06000;
+            border: 1px solid #fedfc0;
+        }
+        .mono {
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.88rem;
+        }
+        .audit-details-text {
+            color: var(--color-text-muted);
+            font-size: 0.8rem;
+            margin-top: 0.2rem;
+            word-break: break-word;
+        }
+        .empty-state {
+            padding: var(--spacing-2xl);
+            text-align: center;
+            color: var(--color-text-secondary);
+        }
+        .filter-tags {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: var(--spacing-md);
+            flex-wrap: wrap;
+        }
+        .filter-chip {
+            padding: 0.25rem 0.65rem;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            background-color: var(--color-surface-2);
+            color: var(--color-text-secondary);
+            border: 1px solid var(--color-border);
+            text-decoration: none;
+        }
+        .filter-chip:hover, .filter-chip.active {
+            background-color: var(--color-accent-light);
+            color: var(--color-accent);
+            border-color: var(--color-accent);
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========== HEADER / NAVIGATION ========== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon">&#128196;</span>
+                <span class="brand-name">Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <nav class="nav" id="main-nav" aria-label="Main navigation">
+                <ul class="nav-list">
+                    <li><a href="/" class="nav-link" id="nav-home">Home</a></li>
+                    <li><a href="/verify" class="nav-link" id="nav-verify">Verify Certificate</a></li>
+                    <li><a href="/verify-qr" class="nav-link" id="nav-verify-qr">QR Verify</a></li>
+                    <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
+                    <li><a href="/certificates" class="nav-link" id="nav-certificates">Manage Certificates</a></li>
+                    <li><a href="/revoke" class="nav-link" id="nav-revoke">Revoke</a></li>
+                    <li><a href="/blockchain" class="nav-link" id="nav-blockchain">Blockchain</a></li>
+                    <li><a href="/audit" class="nav-link active" id="nav-audit">Audit Trail</a></li>
+                    <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-hero">
+            <div class="container">
+                <h1 class="page-title">Audit Trail</h1>
+                <p class="page-sub">Immutable audit records tracking issuance, verification, revocation, and blockchain validation.</p>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="container audit-container">
+
+                <div class="audit-header">
+                    <div>
+                        <strong th:text="${totalLogs}">0</strong> audit record(s) logged
+                        <span th:if="${searchQuery}" th:text="' matching \'' + ${searchQuery} + '\''" style="color: var(--color-accent);"></span>
+                    </div>
+                    <form method="get" action="/audit" class="audit-search-bar">
+                        <input type="text" name="search" th:value="${searchQuery}" class="audit-search-input" placeholder="Search by Certificate ID...">
+                        <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Search</button>
+                        <a th:if="${searchQuery != null || filterAction != null || filterCertId != null}" href="/audit" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Clear</a>
+                    </form>
+                </div>
+
+                <div class="filter-tags">
+                    <span style="font-size: 0.85rem; color: var(--color-text-secondary); align-self: center;">Quick Filter:</span>
+                    <a href="/audit" th:class="${filterAction == null && searchQuery == null ? 'filter-chip active' : 'filter-chip'}">All Logs</a>
+                    <a href="/audit?action=CERTIFICATE_ISSUANCE" th:class="${filterAction == 'CERTIFICATE_ISSUANCE' ? 'filter-chip active' : 'filter-chip'}">Issuance</a>
+                    <a href="/audit?action=VERIFIED" th:class="${filterAction == 'VERIFIED' ? 'filter-chip active' : 'filter-chip'}">Verified Genuine</a>
+                    <a href="/audit?action=FAILED_VERIFICATION" th:class="${filterAction == 'FAILED_VERIFICATION' ? 'filter-chip active' : 'filter-chip'}">Failed Verification</a>
+                    <a href="/audit?action=REVOCATION" th:class="${filterAction == 'REVOCATION' ? 'filter-chip active' : 'filter-chip'}">Revocation</a>
+                    <a href="/audit?action=QR_VERIFICATION" th:class="${filterAction == 'QR_VERIFICATION' ? 'filter-chip active' : 'filter-chip'}">QR Verification</a>
+                    <a href="/audit?action=BLOCKCHAIN_VALIDATION" th:class="${filterAction == 'BLOCKCHAIN_VALIDATION' ? 'filter-chip active' : 'filter-chip'}">Blockchain Validation</a>
+                </div>
+
+                <div class="audit-table-card">
+                    <div th:if="${#lists.isEmpty(auditLogs)}" class="empty-state">
+                        <p>No audit trail records found.</p>
+                        <a href="/certificates" class="btn btn-primary">Go to Certificates</a>
+                    </div>
+
+                    <table th:if="${!#lists.isEmpty(auditLogs)}" class="audit-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 20%;">Timestamp</th>
+                                <th style="width: 25%;">Certificate ID</th>
+                                <th style="width: 30%;">Action</th>
+                                <th style="width: 25%;">Result</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="log : ${auditLogs}">
+                                <td class="mono" th:text="${#temporals.format(log.timestamp, 'yyyy-MM-dd HH:mm:ss')}">2026-09-21 15:00:00</td>
+                                <td>
+                                    <span th:if="${log.certificateId != 'SYSTEM' && log.certificateId != 'BLOCKCHAIN_LEDGER'}">
+                                        <a th:href="@{'/certificate/' + ${log.certificateId}}" class="mono" th:text="${log.certificateId}">CERT-001</a>
+                                    </span>
+                                    <span th:if="${log.certificateId == 'SYSTEM' || log.certificateId == 'BLOCKCHAIN_LEDGER'}" class="mono" style="color: var(--color-text-muted);" th:text="${log.certificateId}">BLOCKCHAIN_LEDGER</span>
+                                    <div th:if="${log.details}" class="audit-details-text" th:text="${log.details}">Details</div>
+                                </td>
+                                <td>
+                                    <span th:if="${log.action == 'REVOCATION' || log.action == 'REVOKED'}" class="badge badge-action revocation" th:text="${log.action}">REVOCATION</span>
+                                    <span th:if="${log.action == 'CERTIFICATE_ISSUANCE' || log.action == 'ISSUED'}" class="badge badge-action issuance" th:text="${log.action}">CERTIFICATE_ISSUANCE</span>
+                                    <span th:if="${log.action == 'BLOCKCHAIN_VALIDATION'}" class="badge badge-action blockchain" th:text="${log.action}">BLOCKCHAIN_VALIDATION</span>
+                                    <span th:if="${log.action != 'REVOCATION' && log.action != 'REVOKED' && log.action != 'CERTIFICATE_ISSUANCE' && log.action != 'ISSUED' && log.action != 'BLOCKCHAIN_VALIDATION'}" class="badge badge-action" th:text="${log.action}">VERIFIED</span>
+                                </td>
+                                <td>
+                                    <span th:if="${log.result == 'SUCCESS' || log.result == 'VALID' || log.result == 'Genuine'}" class="badge badge-result-success" th:text="${log.result}">SUCCESS</span>
+                                    <span th:if="${log.result == 'FAILED' || log.result == 'TAMPERED' || log.result == 'Tampered' || log.result == 'Invalid QR Code'}" class="badge badge-result-failed" th:text="${log.result}">FAILED</span>
+                                    <span th:if="${log.result == 'REVOKED' || log.result == 'Revoked'}" class="badge badge-result-revoked" th:text="${log.result}">REVOKED</span>
+                                    <span th:if="${log.result != 'SUCCESS' && log.result != 'VALID' && log.result != 'Genuine' && log.result != 'FAILED' && log.result != 'TAMPERED' && log.result != 'Tampered' && log.result != 'Invalid QR Code' && log.result != 'REVOKED' && log.result != 'Revoked'}" class="badge badge-action" th:text="${log.result != null ? log.result : 'LOGGED'}">LOGGED</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: var(--spacing-xl); text-align: center; color: var(--color-text-muted); font-size: 0.85rem;">
+                    REST API endpoint available: <code class="mono">GET /api/audit-logs</code> | <code class="mono">GET /api/audit-logs?certificateId={id}</code>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <span class="brand-icon">&#128196;</span>
+                <span>Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <p class="footer-sub">Java Project</p>
+            <p class="footer-copy">&copy; 2024 Certificate Verification System. College Project Demonstration.</p>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js}"></script>
+</body>
+</html>

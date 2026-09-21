@@ -112,15 +112,40 @@ public class CertificateController {
     }
 
     /**
-     * Revoke a certificate by its certificate ID.
+     * Search certificates by query (matching ID, student name, or institution).
+     *
+     * @param query search text
+     * @return 200 OK with list of matching certificates
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<Certificate>> searchCertificates(@RequestParam("query") String query) {
+        List<Certificate> results = certificateService.searchCertificates(query);
+        return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Revoke a certificate by its certificate ID with an optional revocation reason.
+     * Day 7: Supports revocation reason in body or query param, stores reason & timestamp.
      *
      * @param certificateId unique certificate identifier
-     * @return 200 OK with revoked certificate, or 400 Bad Request
+     * @param payload optional JSON body with reason
+     * @param reasonParam optional query parameter for reason
+     * @return 200 OK with revoked certificate, or 404 Not Found
      */
     @PostMapping("/{certificateId}/revoke")
-    public ResponseEntity<?> revokeCertificate(@PathVariable("certificateId") String certificateId) {
+    public ResponseEntity<?> revokeCertificate(
+            @PathVariable("certificateId") String certificateId,
+            @RequestBody(required = false) Map<String, String> payload,
+            @RequestParam(value = "reason", required = false) String reasonParam) {
         try {
-            Certificate revoked = certificateService.revokeCertificate(certificateId);
+            String reason = "Revoked by issuing authority";
+            if (payload != null && payload.containsKey("reason") && payload.get("reason") != null && !payload.get("reason").trim().isEmpty()) {
+                reason = payload.get("reason").trim();
+            } else if (reasonParam != null && !reasonParam.trim().isEmpty()) {
+                reason = reasonParam.trim();
+            }
+
+            Certificate revoked = certificateService.revokeCertificate(certificateId, reason);
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Certificate revoked successfully.");
             response.put("certificate", revoked);

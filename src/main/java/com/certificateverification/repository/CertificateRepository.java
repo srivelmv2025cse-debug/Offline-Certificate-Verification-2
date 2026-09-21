@@ -44,4 +44,15 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
      * @return list of certificates
      */
     java.util.List<Certificate> findAllByOrderByCreatedAtDesc();
+
+    /**
+     * Search certificates matching certificate ID, student name, or institution name.
+     */
+    java.util.List<Certificate> findByCertificateIdContainingIgnoreCaseOrStudentNameContainingIgnoreCaseOrInstitutionNameContainingIgnoreCaseOrderByCreatedAtDesc(
+            String certificateId, String studentName, String institutionName);
+
+    /**
+     * Retrieve certificates by status ordered by creation date descending.
+     */
+    java.util.List<Certificate> findByStatusOrderByCreatedAtDesc(String status);
 }

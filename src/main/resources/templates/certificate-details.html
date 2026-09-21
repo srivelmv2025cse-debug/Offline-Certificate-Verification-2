@@ -152,7 +152,9 @@
                     <li><a href="/verify-qr" class="nav-link" id="nav-verify-qr">QR Verify</a></li>
                     <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
                     <li><a href="/certificates" class="nav-link" id="nav-certificates">Manage Certificates</a></li>
+                    <li><a href="/revoke" class="nav-link" id="nav-revoke">Revoke</a></li>
                     <li><a href="/blockchain" class="nav-link" id="nav-blockchain">Blockchain</a></li>
+                    <li><a href="/audit" class="nav-link" id="nav-audit">Audit Trail</a></li>
                     <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
                 </ul>
             </nav>
@@ -220,8 +222,16 @@
                         <div class="cert-row">
                             <span class="cert-label">Status</span>
                             <span class="cert-value">
-                                <span id="cert-status-badge" th:class="'status-badge ' + ${#strings.toLowerCase(certificate.status)}" th:text="${certificate.status}">ISSUED</span>
+                                <span id="cert-status-badge" th:class="'status-badge ' + ${#strings.toLowerCase(certificate.effectiveStatus)}" th:text="${certificate.effectiveStatus}">VALID</span>
                             </span>
+                        </div>
+                        <div class="cert-row" th:if="${certificate.effectiveStatus == 'REVOKED' and certificate.revocationReason != null}">
+                            <span class="cert-label" style="color: #c5221f;">Revocation Reason</span>
+                            <span class="cert-value" style="color: #c5221f; font-weight: 600;" th:text="${certificate.revocationReason}">Reason</span>
+                        </div>
+                        <div class="cert-row" th:if="${certificate.effectiveStatus == 'REVOKED' and certificate.revocationTimestamp != null}">
+                            <span class="cert-label" style="color: #c5221f;">Revocation Date</span>
+                            <span class="cert-value mono" style="color: #c5221f;" th:text="${#temporals.format(certificate.revocationTimestamp, 'yyyy-MM-dd HH:mm:ss')}">Timestamp</span>
                         </div>
                         <div class="cert-row" th:if="${certificate.createdAt != null}">
                             <span class="cert-label">Created At</span>
@@ -256,6 +266,7 @@
                 <div class="cert-actions">
                     <a th:href="@{'/verify-qr?certificateId=' + ${certificate.certificateId}}" class="btn btn-primary" id="btn-qr-verify">QR Verification</a>
                     <a th:href="@{'/verify?certificateId=' + ${certificate.certificateId}}" class="btn btn-secondary" id="btn-verify-cert-details">Data Verification</a>
+                    <a th:if="${certificate.effectiveStatus != 'REVOKED'}" th:href="@{'/revoke?certificateId=' + ${certificate.certificateId}}" class="btn btn-secondary" style="color: #c5221f; border-color: #ffcdd2;">Revoke Certificate</a>
                     <a href="/issue" class="btn btn-secondary">Issue Another</a>
                     <a href="/certificates" class="btn btn-secondary">All Certificates</a>
                     <a href="/blockchain" class="btn btn-secondary">View on Blockchain</a>

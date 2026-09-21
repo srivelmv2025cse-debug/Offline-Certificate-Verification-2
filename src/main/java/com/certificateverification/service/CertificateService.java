@@ -149,6 +149,22 @@ public class CertificateService {
 
         Certificate saved = certificateRepository.save(certificate);
         logger.info("Certificate successfully issued with ID: {}", saved.getCertificateId());
+
+        // Day 7: Record audit log for certificate issuance
+        try {
+            AuditLog auditLog = new AuditLog();
+            auditLog.setCertificateId(saved.getCertificateId());
+            auditLog.setAction("CERTIFICATE_ISSUANCE");
+            auditLog.setResult("SUCCESS");
+            auditLog.setIpAddress("127.0.0.1");
+            auditLog.setDetails("Issued to " + saved.getStudentName() + " (" + saved.getCourseName() + ") by " + saved.getInstitutionName());
+            auditLog.setTimestamp(LocalDateTime.now());
+            auditLogRepository.save(auditLog);
+            logger.info("Audit logged: CERTIFICATE_ISSUANCE for {}", saved.getCertificateId());
+        } catch (Exception e) {
+            logger.error("Failed to log certificate issuance audit", e);
+        }
+
         return saved;
     }
 
@@ -178,15 +194,56 @@ public class CertificateService {
     }
 
     /**
-     * Revoke a certificate by its unique certificate ID.
+     * Search certificates by query (ID, student name, or institution).
+     */
+    public List<Certificate> searchCertificates(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return getAllCertificates();
+        }
+        String q = query.trim();
+        return certificateRepository.findByCertificateIdContainingIgnoreCaseOrStudentNameContainingIgnoreCaseOrInstitutionNameContainingIgnoreCaseOrderByCreatedAtDesc(
+                q, q, q);
+    }
+
+    /**
+     * Revoke a certificate by its unique certificate ID with default reason.
      */
     public Certificate revokeCertificate(String certificateId) {
-        logger.info("Revoking certificate: {}", certificateId);
+        return revokeCertificate(certificateId, "Revoked by issuing authority");
+    }
+
+    /**
+     * Revoke a certificate by its unique certificate ID with specific reason.
+     * Day 7: Records revocation reason, timestamp, and audit trail entry.
+     */
+    public Certificate revokeCertificate(String certificateId, String reason) {
+        logger.info("Revoking certificate: {} with reason: {}", certificateId, reason);
         Certificate cert = getCertificateById(certificateId)
                 .orElseThrow(() -> new IllegalArgumentException("Certificate with ID '" + certificateId + "' not found"));
+        
+        String trimmedReason = (reason != null && !reason.trim().isEmpty()) ? reason.trim() : "Revoked by issuing authority";
         cert.setStatus("REVOKED");
         cert.setRevoked(true);
-        return certificateRepository.save(cert);
+        cert.setRevocationReason(trimmedReason);
+        cert.setRevocationTimestamp(LocalDateTime.now());
+        Certificate saved = certificateRepository.save(cert);
+
+        // Day 7: Record audit log for revocation
+        try {
+            AuditLog auditLog = new AuditLog();
+            auditLog.setCertificateId(certificateId);
+            auditLog.setAction("REVOCATION");
+            auditLog.setResult("SUCCESS");
+            auditLog.setIpAddress("127.0.0.1");
+            auditLog.setDetails("Certificate revoked. Reason: " + trimmedReason);
+            auditLog.setTimestamp(LocalDateTime.now());
+            auditLogRepository.save(auditLog);
+            logger.info("Audit logged: REVOCATION for {}", certificateId);
+        } catch (Exception e) {
+            logger.error("Failed to persist revocation audit log", e);
+        }
+
+        return saved;
     }
 
     /**
@@ -320,26 +377,43 @@ public class CertificateService {
         boolean isRevoked = certOpt.isPresent()
                 && (certOpt.get().isRevoked() || "REVOKED".equalsIgnoreCase(certOpt.get().getStatus()));
 
+        boolean isExpired = certOpt.isPresent()
+                && ("EXPIRED".equalsIgnoreCase(certOpt.get().getStatus()) || certOpt.get().isExpired());
+
+        String auditResult;
+
         if (blockOpt.isEmpty()) {
             result            = "Certificate Not Found / Potentially Fake";
             certificateStatus = certOpt.map(Certificate::getStatus).orElse("NOT_FOUND");
             auditAction       = "FAILED_VERIFICATION";
+            auditResult       = "FAILED";
             message           = "Certificate ID '" + certificateId + "' was not found on the blockchain ledger.";
         } else if (isRevoked) {
             result            = "REVOKED CERTIFICATE";
             certificateStatus = "REVOKED";
             auditAction       = "FAILED_VERIFICATION";
-            message           = "Certificate has been formally revoked by the issuing authority.";
+            auditResult       = "FAILED";
+            String revReason  = certOpt.get().getRevocationReason();
+            message           = "Certificate has been formally revoked by the issuing authority."
+                    + (revReason != null && !revReason.isEmpty() ? " Reason: " + revReason : "");
+        } else if (isExpired) {
+            result            = "EXPIRED CERTIFICATE";
+            certificateStatus = "EXPIRED";
+            auditAction       = "FAILED_VERIFICATION";
+            auditResult       = "FAILED";
+            message           = "Certificate expired on " + certOpt.get().getExpiryDate() + ".";
         } else if (!blockchainMatch) {
             result            = "TAMPERED CERTIFICATE";
             certificateStatus = "TAMPERED";
             auditAction       = "FAILED_VERIFICATION";
+            auditResult       = "FAILED";
             message           = "Certificate data does not match the immutable hash recorded on the blockchain.";
         } else if (!signatureValid) {
             // Hash matches but signature is invalid/missing
             result            = "TAMPERED CERTIFICATE";
             certificateStatus = "TAMPERED";
             auditAction       = "FAILED_VERIFICATION";
+            auditResult       = "FAILED";
             String sigReason  = "SIGNATURE MISSING".equals(signatureStatus)
                     ? "No digital signature is present on this certificate record."
                     : "Digital signature verification failed — the certificate may have been tampered with.";
@@ -350,6 +424,7 @@ public class CertificateService {
             certificateStatus = certOpt.map(Certificate::getStatus).orElse("ISSUED");
             verified          = true;
             auditAction       = "VERIFIED";
+            auditResult       = "SUCCESS";
             message           = "Certificate is authentic — blockchain hash matches and digital signature is valid.";
         }
 
@@ -358,6 +433,7 @@ public class CertificateService {
             AuditLog auditLog = new AuditLog();
             auditLog.setCertificateId(certificateId);
             auditLog.setAction(auditAction);
+            auditLog.setResult(auditResult);
             auditLog.setIpAddress(ipAddress != null ? ipAddress : "127.0.0.1");
             auditLog.setDetails("Result: " + result
                     + " | hashMatch=" + blockchainMatch
@@ -367,7 +443,7 @@ public class CertificateService {
                     + " | blockHash=" + (blockchainHash != null ? blockchainHash : "NONE"));
             auditLog.setTimestamp(LocalDateTime.now());
             auditLogRepository.save(auditLog);
-            logger.info("Verification audit logged: action={}, result={}, certId={}", auditAction, result, certificateId);
+            logger.info("Verification audit logged: action={}, result={}, certId={}", auditAction, auditResult, certificateId);
         } catch (Exception e) {
             logger.error("Failed to persist verification audit log", e);
         }

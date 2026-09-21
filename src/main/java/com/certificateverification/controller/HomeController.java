@@ -27,14 +27,23 @@ public class HomeController {
     private final CertificateService certificateService;
     private final Blockchain blockchain;
     private final QRService qrService;
+    private final com.certificateverification.service.AuditLogService auditLogService;
+
+    public HomeController(CertificateService certificateService,
+                          Blockchain blockchain,
+                          QRService qrService) {
+        this(certificateService, blockchain, qrService, null);
+    }
 
     @Autowired
     public HomeController(CertificateService certificateService,
                           Blockchain blockchain,
-                          QRService qrService) {
+                          QRService qrService,
+                          @Autowired(required = false) com.certificateverification.service.AuditLogService auditLogService) {
         this.certificateService = certificateService;
         this.blockchain = blockchain;
         this.qrService = qrService;
+        this.auditLogService = auditLogService;
     }
 
     @GetMapping("/")
@@ -103,21 +112,84 @@ public class HomeController {
     }
 
     @GetMapping("/certificates")
-    public String listCertificates(Model model) {
+    public String listCertificates(@RequestParam(value = "search", required = false) String search, Model model) {
         model.addAttribute("pageTitle", "Certificate Management");
-        model.addAttribute("certificates", certificateService.getAllCertificates());
+        if (search != null && !search.trim().isEmpty()) {
+            model.addAttribute("certificates", certificateService.searchCertificates(search.trim()));
+            model.addAttribute("searchQuery", search.trim());
+        } else {
+            model.addAttribute("certificates", certificateService.getAllCertificates());
+        }
         return "certificates";
     }
 
     @PostMapping("/certificates/{id}/revoke")
-    public String revokeCertificate(@PathVariable("id") String id, RedirectAttributes redirectAttributes) {
+    public String revokeCertificate(
+            @PathVariable("id") String id,
+            @RequestParam(value = "reason", required = false) String reason,
+            RedirectAttributes redirectAttributes) {
         try {
-            certificateService.revokeCertificate(id);
+            certificateService.revokeCertificate(id, reason);
             redirectAttributes.addFlashAttribute("successMessage", "Certificate " + id + " was revoked successfully.");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/certificates";
+    }
+
+    @GetMapping("/revoke")
+    public String showRevokePage(
+            @RequestParam(value = "certificateId", required = false) String certificateId,
+            Model model) {
+        model.addAttribute("pageTitle", "Revoke Certificate");
+        if (certificateId != null && !certificateId.trim().isEmpty()) {
+            Optional<Certificate> certOpt = certificateService.getCertificateById(certificateId.trim());
+            if (certOpt.isPresent()) {
+                model.addAttribute("foundCertificate", certOpt.get());
+            } else {
+                model.addAttribute("notFoundMessage", "No certificate found with ID '" + certificateId.trim() + "'.");
+            }
+            model.addAttribute("searchId", certificateId.trim());
+        }
+        return "revoke";
+    }
+
+    @PostMapping("/revoke")
+    public String handleRevokeForm(
+            @RequestParam("certificateId") String certificateId,
+            @RequestParam(value = "reason", required = false) String reason,
+            RedirectAttributes redirectAttributes) {
+        try {
+            Certificate revoked = certificateService.revokeCertificate(certificateId, reason);
+            redirectAttributes.addFlashAttribute("successMessage", "Certificate " + revoked.getCertificateId() + " has been revoked.");
+            return "redirect:/certificate/" + revoked.getCertificateId();
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Revocation failed: " + e.getMessage());
+            return "redirect:/revoke?certificateId=" + certificateId;
+        }
+    }
+
+    @GetMapping("/audit")
+    public String showAuditTrail(
+            @RequestParam(value = "certificateId", required = false) String certificateId,
+            @RequestParam(value = "action", required = false) String action,
+            @RequestParam(value = "search", required = false) String search,
+            Model model) {
+        model.addAttribute("pageTitle", "Audit Trail");
+        java.util.List<com.certificateverification.model.AuditLog> logs;
+        if (search != null && !search.trim().isEmpty()) {
+            logs = auditLogService != null ? auditLogService.searchLogs(search.trim()) : java.util.List.of();
+            model.addAttribute("searchQuery", search.trim());
+        } else if ((certificateId != null && !certificateId.trim().isEmpty()) || (action != null && !action.trim().isEmpty())) {
+            logs = auditLogService != null ? auditLogService.getLogsByCertificateIdAndAction(certificateId, action) : java.util.List.of();
+            model.addAttribute("filterCertId", certificateId);
+            model.addAttribute("filterAction", action);
+        } else {
+            logs = auditLogService != null ? auditLogService.getAllLogs() : java.util.List.of();
+        }
+        model.addAttribute("auditLogs", logs);
+        model.addAttribute("totalLogs", logs != null ? logs.size() : 0);
+        return "audit";
     }
 
     @GetMapping("/blockchain")
@@ -130,6 +202,15 @@ public class HomeController {
             model.addAttribute("validationPerformed", true);
             model.addAttribute("isValid", isValid);
             model.addAttribute("validationMessage", isValid ? "Blockchain Valid" : "Blockchain Tampered");
+            if (auditLogService != null) {
+                auditLogService.log(
+                        "BLOCKCHAIN_LEDGER",
+                        "BLOCKCHAIN_VALIDATION",
+                        isValid ? "VALID" : "TAMPERED",
+                        "UI blockchain integrity check. Valid: " + isValid + ", Total blocks: " + blockchain.getChainSize(),
+                        "127.0.0.1"
+                );
+            }
         }
         return "blockchain";
     }

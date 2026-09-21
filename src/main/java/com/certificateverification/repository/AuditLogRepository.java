@@ -14,10 +14,30 @@ import java.util.List;
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
     /**
+     * Find all audit log entries ordered by timestamp descending (newest first).
+     */
+    List<AuditLog> findAllByOrderByTimestampDesc();
+
+    /**
      * Find all audit log entries for a given certificate ID.
      *
      * @param certificateId the certificate identifier
      * @return list of audit log entries, ordered by most recent
      */
     List<AuditLog> findByCertificateIdOrderByTimestampDesc(String certificateId);
+
+    /**
+     * Find audit logs matching certificate ID partially.
+     */
+    List<AuditLog> findByCertificateIdContainingIgnoreCaseOrderByTimestampDesc(String certificateId);
+
+    /**
+     * Find audit logs by action.
+     */
+    List<AuditLog> findByActionOrderByTimestampDesc(String action);
+
+    /**
+     * Find audit logs by action and certificate ID.
+     */
+    List<AuditLog> findByCertificateIdAndActionOrderByTimestampDesc(String certificateId, String action);
 }

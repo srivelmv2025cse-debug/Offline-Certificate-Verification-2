@@ -80,6 +80,14 @@ public class Certificate {
     @Column(name = "is_revoked", nullable = false)
     private boolean revoked = false;
 
+    /** Reason for revocation entered by institution/admin */
+    @Column(name = "revocation_reason", columnDefinition = "TEXT")
+    private String revocationReason;
+
+    /** Timestamp when certificate was revoked */
+    @Column(name = "revocation_timestamp")
+    private LocalDateTime revocationTimestamp;
+
     /** Timestamp of record creation */
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -87,6 +95,26 @@ public class Certificate {
     /** Timestamp of last update */
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /**
+     * Checks if the certificate is expired based on current date.
+     */
+    public boolean isExpired() {
+        return "EXPIRED".equalsIgnoreCase(status) || (expiryDate != null && expiryDate.isBefore(LocalDate.now()));
+    }
+
+    /**
+     * Returns the effective status: REVOKED, EXPIRED, or VALID (or ISSUED).
+     */
+    public String getEffectiveStatus() {
+        if (revoked || "REVOKED".equalsIgnoreCase(status)) {
+            return "REVOKED";
+        }
+        if (isExpired()) {
+            return "EXPIRED";
+        }
+        return "VALID";
+    }
 
     @PrePersist
     protected void onCreate() {
