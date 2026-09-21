@@ -9,11 +9,15 @@ import com.certificateverification.model.Block;
 import com.certificateverification.model.Certificate;
 import com.certificateverification.repository.AuditLogRepository;
 import com.certificateverification.repository.CertificateRepository;
+import com.certificateverification.signature.DigitalSignatureService;
+import com.certificateverification.signature.InstitutionKeyStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.security.KeyPair;
+import java.security.PublicKey;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +25,7 @@ import java.util.Optional;
 /**
  * Service for certificate operations: issue, verify, revoke.
  * Day 4: Implemented certificate verification and tamper/fraud detection.
+ * Day 6: Integrated RSA digital signature on issuance and signature verification.
  */
 @Service
 public class CertificateService {
@@ -31,25 +36,32 @@ public class CertificateService {
     private final Blockchain blockchain;
     private final AuditLogRepository auditLogRepository;
     private final com.certificateverification.qr.QRService qrService;
+    private final DigitalSignatureService digitalSignatureService;
+    private final InstitutionKeyStore institutionKeyStore;
 
     @Autowired
     public CertificateService(CertificateRepository certificateRepository,
                               Blockchain blockchain,
                               AuditLogRepository auditLogRepository,
-                              com.certificateverification.qr.QRService qrService) {
+                              com.certificateverification.qr.QRService qrService,
+                              DigitalSignatureService digitalSignatureService,
+                              InstitutionKeyStore institutionKeyStore) {
         this.certificateRepository = certificateRepository;
         this.blockchain = blockchain;
         this.auditLogRepository = auditLogRepository;
         this.qrService = qrService;
+        this.digitalSignatureService = digitalSignatureService;
+        this.institutionKeyStore = institutionKeyStore;
     }
 
     /**
      * Issue a new certificate.
-     * Validates and saves the certificate to the database.
+     * Day 6: After anchoring to blockchain, sign the certificate hash using the
+     * institution's RSA private key and store the Base64 signature.
      */
     public Certificate issueCertificate(Certificate certificate) {
         logger.info("Issuing new certificate: {}", certificate != null ? certificate.getCertificateId() : "null");
-        
+
         if (certificate == null) {
             throw new IllegalArgumentException("Certificate details cannot be null");
         }
@@ -95,9 +107,7 @@ public class CertificateService {
         }
         certificate.setRevoked(false);
 
-        // Day 3: Custom blockchain integration
-        // 1. Generate canonical representation of certificate data
-        // 2. Generate SHA-256 certificate hash using Java MessageDigest
+        // Day 3: Generate SHA-256 certificate hash using canonical format
         String expiryStr = certificate.getExpiryDate() != null ? certificate.getExpiryDate().toString() : "";
         String certificateHash = HashUtil.hashCertificate(
                 certificate.getCertificateId(),
@@ -110,16 +120,31 @@ public class CertificateService {
         );
         certificate.setBlockchainHash(certificateHash);
 
-        // 3 & 4 & 5. Create a blockchain block, store certificate hash, and link to previous block
+        // Day 3: Anchor certificate hash to blockchain
         Block block = blockchain.addCertificateBlock(certificate.getCertificateId(), certificateHash);
         logger.info("Certificate {} anchored to Blockchain Block #{} with hash {}",
                 certificate.getCertificateId(), block.getIndex(), block.getHash());
 
-        // Day 5: Generate QR code encoding non-sensitive credentials (Certificate ID and verification reference)
+        // Day 6: Sign the certificate hash using the institution's RSA private key
+        try {
+            KeyPair keyPair = institutionKeyStore.getOrCreateKeyPair(certificate.getInstitutionName());
+            String signature = digitalSignatureService.sign(certificateHash, keyPair.getPrivate());
+            certificate.setDigitalSignature(signature);
+            logger.info("Certificate {} digitally signed with RSA-2048 for institution '{}'",
+                    certificate.getCertificateId(), certificate.getInstitutionName());
+        } catch (Exception e) {
+            // Signing failure is non-fatal for issuance; certificate is still anchored on blockchain.
+            // Log a warning but continue so the certificate is persisted without a signature.
+            logger.warn("Failed to generate digital signature for certificate {}: {}",
+                    certificate.getCertificateId(), e.getMessage());
+        }
+
+        // Day 5: Generate QR code
         try {
             qrService.generateQRCodeForCertificate(certificate);
         } catch (Exception e) {
-            logger.warn("Failed to generate QR code during issuance for certificate {}: {}", certificate.getCertificateId(), e.getMessage());
+            logger.warn("Failed to generate QR code during issuance for certificate {}: {}",
+                    certificate.getCertificateId(), e.getMessage());
         }
 
         Certificate saved = certificateRepository.save(certificate);
@@ -129,20 +154,14 @@ public class CertificateService {
 
     /**
      * Generate or regenerate a QR code for a certificate.
-     *
-     * @param certificateId certificate ID
-     * @return updated certificate
      */
     public Certificate generateQRCodeForCertificate(String certificateId) {
         logger.info("Generating QR code for certificate: {}", certificateId);
         return qrService.generateAndSaveQRCode(certificateId);
     }
-    
+
     /**
      * Retrieve a certificate by its unique certificate ID.
-     *
-     * @param certificateId the unique certificate identifier
-     * @return Optional containing the certificate if found
      */
     public Optional<Certificate> getCertificateById(String certificateId) {
         if (certificateId == null || certificateId.trim().isEmpty()) {
@@ -153,8 +172,6 @@ public class CertificateService {
 
     /**
      * Retrieve all certificates sorted by creation date descending.
-     *
-     * @return list of all certificates
      */
     public List<Certificate> getAllCertificates() {
         return certificateRepository.findAllByOrderByCreatedAtDesc();
@@ -162,9 +179,6 @@ public class CertificateService {
 
     /**
      * Revoke a certificate by its unique certificate ID.
-     *
-     * @param certificateId the unique certificate identifier
-     * @return the updated certificate
      */
     public Certificate revokeCertificate(String certificateId) {
         logger.info("Revoking certificate: {}", certificateId);
@@ -191,15 +205,19 @@ public class CertificateService {
     }
 
     /**
-     * Core Day 4 verification and tamper/fraud detection.
+     * Core verification: blockchain integrity + digital signature + revocation check.
      *
-     * <p>Generates SHA-256 hash using the same canonical format as issuance, searches
-     * the blockchain for the certificate block, verifies authenticity, detects tampering,
-     * checks revocation status, and logs the attempt to audit logs.</p>
+     * <p>Day 4: hash matching, tamper detection, revocation.
+     * <p>Day 6: A certificate is GENUINE only when ALL three conditions hold:
+     * <ol>
+     *   <li>Certificate hash matches the blockchain record (integrity)</li>
+     *   <li>RSA digital signature is valid (authenticity)</li>
+     *   <li>Certificate is not revoked (validity)</li>
+     * </ol>
      *
-     * @param request verification request containing certificate fields
+     * @param request   verification request containing certificate fields
      * @param ipAddress client IP address for audit logging
-     * @return structured verification response
+     * @return structured verification response including signature details
      */
     public CertificateVerificationResponse verifyCertificate(CertificateVerificationRequest request, String ipAddress) {
         if (request == null) {
@@ -207,10 +225,10 @@ public class CertificateService {
         }
 
         String certificateId = request.getCertificateId() != null ? request.getCertificateId().trim() : "";
-        String studentName = request.getStudentName() != null ? request.getStudentName().trim() : "";
-        String courseName = request.getCourseName() != null ? request.getCourseName().trim() : "";
+        String studentName   = request.getStudentName()   != null ? request.getStudentName().trim()   : "";
+        String courseName    = request.getCourseName()    != null ? request.getCourseName().trim()    : "";
         String institutionName = request.getInstitutionName() != null ? request.getInstitutionName().trim() : "";
-        String issueDate = request.getIssueDate() != null ? request.getIssueDate().trim() : "";
+        String issueDate     = request.getIssueDate()     != null ? request.getIssueDate().trim()     : "";
 
         if (certificateId.isEmpty()) {
             throw new IllegalArgumentException("Certificate ID is required for verification");
@@ -221,7 +239,7 @@ public class CertificateService {
         // 1. Search the blockchain for the certificate block
         Optional<Block> blockOpt = blockchain.getBlockByCertificateId(certificateId);
 
-        // 2. Search database for existing certificate
+        // 2. Search database for existing certificate record
         Optional<Certificate> certOpt = certificateRepository.findByCertificateId(certificateId);
 
         // 3. Resolve certificateType and expiryDate for deterministic canonical hashing
@@ -229,76 +247,122 @@ public class CertificateService {
         if ((certificateType == null || certificateType.trim().isEmpty()) && certOpt.isPresent()) {
             certificateType = certOpt.get().getCertificateType();
         }
-        if (certificateType == null) {
-            certificateType = "";
-        }
+        if (certificateType == null) certificateType = "";
 
         String expiryDate = request.getExpiryDate();
-        if ((expiryDate == null || expiryDate.trim().isEmpty()) && certOpt.isPresent() && certOpt.get().getExpiryDate() != null) {
+        if ((expiryDate == null || expiryDate.trim().isEmpty()) && certOpt.isPresent()
+                && certOpt.get().getExpiryDate() != null) {
             expiryDate = certOpt.get().getExpiryDate().toString();
         }
-        if (expiryDate == null) {
-            expiryDate = "";
-        }
+        if (expiryDate == null) expiryDate = "";
 
-        // 4. Recalculate SHA-256 hash using the SAME canonical format used during issuance
+        // 4. Recalculate SHA-256 hash using the SAME canonical format as issuance
         String calculatedHash = HashUtil.hashCertificate(
-                certificateId,
-                studentName,
-                courseName,
-                institutionName,
-                certificateType,
-                issueDate,
-                expiryDate
+                certificateId, studentName, courseName, institutionName,
+                certificateType, issueDate, expiryDate
         );
 
         String blockchainHash = blockOpt.map(Block::getCertificateHash).orElse(null);
         boolean blockchainMatch = blockchainHash != null && blockchainHash.equalsIgnoreCase(calculatedHash);
 
-        // 5. Verification logic:
-        // 1. Certificate ID not found: Result = "Certificate Not Found / Potentially Fake"
-        // 2. Certificate ID found and hash matches: Result = "GENUINE CERTIFICATE"
-        // 3. Certificate ID found but hash does not match: Result = "TAMPERED CERTIFICATE"
-        // 4. Certificate is revoked: Result = "REVOKED CERTIFICATE"
+        // -----------------------------------------------------------------------
+        // Day 6: Digital Signature Verification
+        // -----------------------------------------------------------------------
+        boolean signatureValid     = false;
+        String  signatureStatus    = "NOT SIGNED";
+        String  signingInstitution = null;
+        String  publicKeyFingerprint = null;
 
+        if (certOpt.isPresent()) {
+            Certificate dbCert = certOpt.get();
+            String storedSignature = dbCert.getDigitalSignature();
+            String institutionForKey = dbCert.getInstitutionName();
+
+            if (storedSignature != null && !storedSignature.trim().isEmpty()) {
+                signingInstitution = institutionForKey;
+                // Retrieve the institution's public key from the in-memory key store
+                PublicKey publicKey = institutionKeyStore.getPublicKey(institutionForKey);
+                if (publicKey != null) {
+                    // Verify the stored signature against the blockchain hash
+                    // (i.e., the hash that was actually signed at issuance time)
+                    String hashToVerify = dbCert.getBlockchainHash() != null
+                            ? dbCert.getBlockchainHash()
+                            : calculatedHash;
+                    signatureValid = digitalSignatureService.verify(hashToVerify, storedSignature, publicKey);
+                    signatureStatus = signatureValid ? "VALID" : "INVALID";
+                    publicKeyFingerprint = digitalSignatureService.getPublicKeyFingerprint(publicKey);
+                    logger.info("Digital signature verification for '{}': {} (institution: '{}')",
+                            certificateId, signatureStatus, institutionForKey);
+                } else {
+                    signatureStatus = "KEY NOT FOUND";
+                    logger.warn("No public key found in key store for institution '{}' — cannot verify signature",
+                            institutionForKey);
+                }
+            } else {
+                signatureStatus = "SIGNATURE MISSING";
+                logger.info("No digital signature stored for certificate '{}' (pre-Day6 certificate)", certificateId);
+            }
+        }
+
+        // -----------------------------------------------------------------------
+        // 5. Verification verdict (Day 6 updated logic)
+        //    A certificate is GENUINE only when:
+        //    (a) hash matches blockchain  AND
+        //    (b) digital signature is valid  AND
+        //    (c) certificate is not revoked
+        // -----------------------------------------------------------------------
         String result;
         String certificateStatus;
         boolean verified = false;
-        String auditAction;
-        String message;
+        String  auditAction;
+        String  message;
 
-        boolean isRevoked = certOpt.isPresent() && (certOpt.get().isRevoked() || "REVOKED".equalsIgnoreCase(certOpt.get().getStatus()));
+        boolean isRevoked = certOpt.isPresent()
+                && (certOpt.get().isRevoked() || "REVOKED".equalsIgnoreCase(certOpt.get().getStatus()));
 
         if (blockOpt.isEmpty()) {
-            result = "Certificate Not Found / Potentially Fake";
+            result            = "Certificate Not Found / Potentially Fake";
             certificateStatus = certOpt.map(Certificate::getStatus).orElse("NOT_FOUND");
-            auditAction = "FAILED_VERIFICATION";
-            message = "Certificate ID '" + certificateId + "' was not found on the blockchain ledger.";
+            auditAction       = "FAILED_VERIFICATION";
+            message           = "Certificate ID '" + certificateId + "' was not found on the blockchain ledger.";
         } else if (isRevoked) {
-            result = "REVOKED CERTIFICATE";
+            result            = "REVOKED CERTIFICATE";
             certificateStatus = "REVOKED";
-            auditAction = "FAILED_VERIFICATION";
-            message = "Certificate has been formally revoked by the issuing authority.";
-        } else if (blockchainMatch) {
-            result = "GENUINE CERTIFICATE";
-            certificateStatus = certOpt.map(Certificate::getStatus).orElse("ISSUED");
-            verified = true;
-            auditAction = "VERIFIED";
-            message = "Certificate is authentic and matches the blockchain ledger.";
-        } else {
-            result = "TAMPERED CERTIFICATE";
+            auditAction       = "FAILED_VERIFICATION";
+            message           = "Certificate has been formally revoked by the issuing authority.";
+        } else if (!blockchainMatch) {
+            result            = "TAMPERED CERTIFICATE";
             certificateStatus = "TAMPERED";
-            auditAction = "FAILED_VERIFICATION";
-            message = "Certificate data does not match the immutable hash recorded on the blockchain.";
+            auditAction       = "FAILED_VERIFICATION";
+            message           = "Certificate data does not match the immutable hash recorded on the blockchain.";
+        } else if (!signatureValid) {
+            // Hash matches but signature is invalid/missing
+            result            = "TAMPERED CERTIFICATE";
+            certificateStatus = "TAMPERED";
+            auditAction       = "FAILED_VERIFICATION";
+            String sigReason  = "SIGNATURE MISSING".equals(signatureStatus)
+                    ? "No digital signature is present on this certificate record."
+                    : "Digital signature verification failed — the certificate may have been tampered with.";
+            message = sigReason;
+        } else {
+            // All three checks passed: blockchain match + valid signature + not revoked
+            result            = "GENUINE CERTIFICATE";
+            certificateStatus = certOpt.map(Certificate::getStatus).orElse("ISSUED");
+            verified          = true;
+            auditAction       = "VERIFIED";
+            message           = "Certificate is authentic — blockchain hash matches and digital signature is valid.";
         }
 
-        // 6. Record audit log entry for every verification attempt
+        // 6. Record audit log
         try {
             AuditLog auditLog = new AuditLog();
             auditLog.setCertificateId(certificateId);
             auditLog.setAction(auditAction);
             auditLog.setIpAddress(ipAddress != null ? ipAddress : "127.0.0.1");
-            auditLog.setDetails("Result: " + result + " | match=" + blockchainMatch
+            auditLog.setDetails("Result: " + result
+                    + " | hashMatch=" + blockchainMatch
+                    + " | sigValid=" + signatureValid
+                    + " | sigStatus=" + signatureStatus
                     + " | calcHash=" + calculatedHash
                     + " | blockHash=" + (blockchainHash != null ? blockchainHash : "NONE"));
             auditLog.setTimestamp(LocalDateTime.now());
@@ -321,6 +385,11 @@ public class CertificateService {
                 .certificateStatus(certificateStatus)
                 .verified(verified)
                 .message(message)
+                // Day 6 signature fields
+                .signatureValid(signatureValid)
+                .signatureStatus(signatureStatus)
+                .signingInstitution(signingInstitution)
+                .publicKeyFingerprint(publicKeyFingerprint)
                 .build();
     }
 }

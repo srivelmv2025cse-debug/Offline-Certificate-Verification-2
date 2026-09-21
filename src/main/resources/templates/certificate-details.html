@@ -207,6 +207,16 @@
                             <span class="cert-label">Blockchain Hash</span>
                             <span class="cert-value mono" id="cert-blockchain-hash" style="font-size: 0.8rem; word-break: break-all;" th:text="${certificate.blockchainHash}">Hash</span>
                         </div>
+                        <!-- Day 6: Digital Signature Status -->
+                        <div class="cert-row">
+                            <span class="cert-label">Digital Signature</span>
+                            <span class="cert-value" id="cert-sig-status">
+                                <span th:if="${certificate.digitalSignature != null and !certificate.digitalSignature.isEmpty()}"
+                                      style="color: #166534; font-weight: 600;">&#128273; RSA-2048 Signed</span>
+                                <span th:if="${certificate.digitalSignature == null or certificate.digitalSignature.isEmpty()}"
+                                      style="color: #92400e; font-weight: 600;">&#9888; Not Signed</span>
+                            </span>
+                        </div>
                         <div class="cert-row">
                             <span class="cert-label">Status</span>
                             <span class="cert-value">

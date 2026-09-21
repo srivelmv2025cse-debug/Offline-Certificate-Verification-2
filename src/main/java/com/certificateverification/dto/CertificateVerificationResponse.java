@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
  * Structured response for certificate verification attempts.
  * Returns the exact match status, calculated and blockchain hashes,
  * and clear verdict.
+ * Day 6: Added digital signature verification fields.
  */
 @Data
 @Builder
@@ -79,4 +80,33 @@ public class CertificateVerificationResponse {
     /** Timestamp of the verification check */
     @Builder.Default
     private LocalDateTime timestamp = LocalDateTime.now();
+
+    // -------------------------------------------------------------------------
+    // Day 6 - Digital Signature Fields
+    // -------------------------------------------------------------------------
+
+    /**
+     * Whether the RSA digital signature is cryptographically valid.
+     * true means the certificate was signed by the institution's private key.
+     */
+    private boolean signatureValid;
+
+    /**
+     * Human-readable digital signature status:
+     * "VALID", "INVALID", "NOT SIGNED", or "SIGNATURE MISSING"
+     */
+    private String signatureStatus;
+
+    /**
+     * Name of the institution whose private key signed this certificate.
+     */
+    private String signingInstitution;
+
+    /**
+     * Short SHA-256 fingerprint of the institution's public key
+     * (first 16 bytes, colon-delimited hex). Safe to display in UI.
+     *
+     * Example: A3:F1:2C:88:7D:01:FF:AB:CC:12:34:56:78:9A:BC:DE
+     */
+    private String publicKeyFingerprint;
 }

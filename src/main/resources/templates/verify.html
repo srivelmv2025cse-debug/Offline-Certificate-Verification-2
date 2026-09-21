@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Verify certificate authenticity and detect tampered or fake certificates using blockchain.">
+    <meta name="description" content="Verify certificate authenticity and detect tampered or fake certificates using blockchain and digital signatures.">
     <title th:text="${pageTitle}">Verify Certificate - Offline Certificate Verification</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
     <style>
         .verify-wrapper {
-            max-width: 800px;
+            max-width: 820px;
             margin: 0 auto;
         }
 
@@ -89,7 +89,7 @@
             text-align: center;
         }
 
-        /* Verification Result Presentation */
+        /* ===== Verification Result ===== */
         .result-section {
             margin-top: var(--spacing-xl);
         }
@@ -108,28 +108,24 @@
             margin-bottom: var(--spacing-lg);
         }
 
-        /* 1. GENUINE: Green */
         .result-banner.genuine {
             background-color: #e8f5e9;
             color: #1b5e20;
             border: 2px solid #81c784;
         }
 
-        /* 2. TAMPERED: Red */
         .result-banner.tampered {
             background-color: #ffebee;
             color: #b71c1c;
             border: 2px solid #ef5350;
         }
 
-        /* 3. REVOKED: Orange/Amber */
         .result-banner.revoked {
             background-color: #fff8e1;
             color: #b78103;
             border: 2px solid #ffd54f;
         }
 
-        /* 4. NOT FOUND: Neutral Slate / Dark Red */
         .result-banner.not-found {
             background-color: #f1f5f9;
             color: #475569;
@@ -150,7 +146,7 @@
         }
 
         .result-details-table th {
-            width: 28%;
+            width: 30%;
             color: var(--color-text-secondary);
             font-weight: 600;
             background-color: rgba(0, 0, 0, 0.015);
@@ -161,9 +157,24 @@
             word-break: break-all;
         }
 
+        .section-divider {
+            border: none;
+            border-top: 2px dashed var(--color-border);
+            margin: var(--spacing-lg) 0 var(--spacing-md);
+        }
+
+        .section-heading {
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--color-text-secondary);
+            margin-bottom: var(--spacing-sm);
+        }
+
         .hash-box {
             font-family: monospace;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             background-color: #f8fafc;
             padding: 0.4rem 0.6rem;
             border: 1px solid var(--color-border);
@@ -173,7 +184,18 @@
             word-break: break-all;
         }
 
-        .match-badge {
+        .fingerprint-box {
+            font-family: monospace;
+            font-size: 0.88rem;
+            background-color: #f0f4ff;
+            padding: 0.35rem 0.7rem;
+            border: 1px solid #c7d7fd;
+            border-radius: var(--radius-sm);
+            display: inline-block;
+            letter-spacing: 0.04em;
+        }
+
+        .match-badge, .sig-badge {
             display: inline-block;
             padding: 0.3rem 0.7rem;
             border-radius: 9999px;
@@ -182,16 +204,28 @@
             letter-spacing: 0.5px;
         }
 
-        .match-badge.match-true {
+        .match-badge.match-true, .sig-badge.sig-valid {
             background-color: #dcfce7;
             color: #166534;
             border: 1px solid #86efac;
         }
 
-        .match-badge.match-false {
+        .match-badge.match-false, .sig-badge.sig-invalid {
             background-color: #fee2e2;
             color: #991b1b;
             border: 1px solid #fca5a5;
+        }
+
+        .sig-badge.sig-missing {
+            background-color: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+
+        .sig-badge.sig-nokey {
+            background-color: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
         }
 
         .status-badge {
@@ -231,6 +265,81 @@
             font-size: 0.9rem;
             color: var(--color-text-secondary);
         }
+
+        /* Day 6: Security panel */
+        .security-panel {
+            background: linear-gradient(135deg, #f0f4ff 0%, #fafbff 100%);
+            border: 1px solid #c7d7fd;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+
+        .security-panel-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #1e40af;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .security-panel-title .icon {
+            font-size: 1.2rem;
+        }
+
+        .security-notice {
+            background-color: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: var(--radius-sm);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.82rem;
+            color: #78350f;
+            margin-top: var(--spacing-md);
+        }
+
+        .three-factor-row {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+            flex-wrap: wrap;
+        }
+
+        .factor-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.45rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            border: 1.5px solid transparent;
+        }
+
+        .factor-chip.pass {
+            background-color: #dcfce7;
+            color: #166534;
+            border-color: #86efac;
+        }
+
+        .factor-chip.fail {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border-color: #fca5a5;
+        }
+
+        .factor-chip.warn {
+            background-color: #fef3c7;
+            color: #92400e;
+            border-color: #fcd34d;
+        }
+
+        .factor-chip.neutral {
+            background-color: #f1f5f9;
+            color: #475569;
+            border-color: #cbd5e1;
+        }
     </style>
 </head>
 <body>
@@ -263,7 +372,7 @@
         <section class="page-hero">
             <div class="container">
                 <h1 class="page-title">Verify Certificate</h1>
-                <p class="page-sub">Validate certificate authenticity, check SHA-256 integrity, and detect tampered or revoked records against the blockchain.</p>
+                <p class="page-sub">Validate certificate authenticity using blockchain integrity, RSA digital signature, and revocation status.</p>
             </div>
         </section>
 
@@ -278,12 +387,12 @@
                     <div class="verify-card">
                         <h2 style="margin-top: 0; margin-bottom: var(--spacing-sm); font-size: 1.25rem;">Enter Certificate Details</h2>
                         <p class="helper-text" style="margin-bottom: var(--spacing-lg);">
-                            Enter the certificate credentials to compute its canonical SHA-256 hash and query the blockchain ledger.
+                            Enter the certificate credentials to compute its canonical SHA-256 hash, verify the RSA digital signature, and query the blockchain ledger.
                         </p>
 
                         <form th:action="@{/verify}" th:object="${verificationRequest}" method="post" id="verifyForm">
                             <div class="form-grid">
-                                
+
                                 <div class="form-group form-group-full">
                                     <label for="certificateId" class="form-label">Certificate ID <span class="required">*</span></label>
                                     <input type="text" id="certificateId" name="certificateId" th:field="*{certificateId}" class="form-control" required placeholder="e.g. CERT-2024-001">
@@ -327,7 +436,7 @@
                     <!-- Verification Result Display -->
                     <div th:if="${verificationPerformed}" class="result-section" id="verification-result-section">
                         <div class="verify-card">
-                            
+
                             <!-- Verdict Banner -->
                             <div th:class="'result-banner ' + (${response.result == 'GENUINE CERTIFICATE'} ? 'genuine' : (${response.result == 'TAMPERED CERTIFICATE'} ? 'tampered' : (${response.result == 'REVOKED CERTIFICATE'} ? 'revoked' : 'not-found')))"
                                  id="result-banner">
@@ -342,7 +451,30 @@
                             <p style="text-align: center; margin-bottom: var(--spacing-lg); color: var(--color-text-secondary); font-size: 1rem;"
                                th:text="${response.message}" id="result-message"></p>
 
-                            <!-- Breakdown Grid -->
+                            <!-- Day 6: Three-Factor Security Check Summary -->
+                            <div class="three-factor-row" id="three-factor-row">
+                                <!-- Factor 1: Blockchain Hash -->
+                                <div th:class="'factor-chip ' + (${response.blockchainMatch} ? 'pass' : 'fail')"
+                                     id="factor-blockchain">
+                                    <span th:text="${response.blockchainMatch} ? '&#9989;' : '&#10060;'">&#9989;</span>
+                                    Blockchain Hash
+                                </div>
+                                <!-- Factor 2: Digital Signature -->
+                                <div th:class="'factor-chip ' + (${response.signatureValid} ? 'pass' : (${response.signatureStatus == 'SIGNATURE MISSING'} ? 'warn' : 'fail'))"
+                                     id="factor-signature">
+                                    <span th:text="${response.signatureValid} ? '&#9989;' : (${response.signatureStatus == 'SIGNATURE MISSING'} ? '&#9888;' : '&#10060;')">&#9989;</span>
+                                    Digital Signature
+                                </div>
+                                <!-- Factor 3: Not Revoked -->
+                                <div th:class="'factor-chip ' + (${response.certificateStatus == 'REVOKED'} ? 'fail' : (${response.certificateStatus == 'NOT_FOUND'} ? 'neutral' : 'pass'))"
+                                     id="factor-revocation">
+                                    <span th:text="${response.certificateStatus == 'REVOKED'} ? '&#10060;' : (${response.certificateStatus == 'NOT_FOUND'} ? '&#8212;' : '&#9989;')">&#9989;</span>
+                                    Not Revoked
+                                </div>
+                            </div>
+
+                            <!-- Certificate Info Table -->
+                            <p class="section-heading">Certificate Information</p>
                             <table class="result-details-table" id="result-details-table">
                                 <tbody>
                                     <tr>
@@ -361,6 +493,25 @@
                                         <th>Course</th>
                                         <td id="res-course" th:text="${response.course}">Course Name</td>
                                     </tr>
+                                    <tr>
+                                        <th>Certificate Status</th>
+                                        <td>
+                                            <span id="res-certificate-status"
+                                                  th:class="'status-badge ' + (${response.certificateStatus == 'ISSUED'} ? 'status-issued' : (${response.certificateStatus == 'REVOKED'} ? 'status-revoked' : 'status-other'))"
+                                                  th:text="${response.certificateStatus}">
+                                                ISSUED
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <hr class="section-divider">
+
+                            <!-- Blockchain Integrity Section -->
+                            <p class="section-heading">&#128274; Blockchain Integrity</p>
+                            <table class="result-details-table" id="blockchain-details-table">
+                                <tbody>
                                     <tr>
                                         <th>Blockchain Hash</th>
                                         <td>
@@ -383,22 +534,72 @@
                                             </span>
                                         </td>
                                     </tr>
-                                    <tr>
-                                        <th>Certificate Status</th>
-                                        <td>
-                                            <span id="res-certificate-status"
-                                                  th:class="'status-badge ' + (${response.certificateStatus == 'ISSUED'} ? 'status-issued' : (${response.certificateStatus == 'REVOKED'} ? 'status-revoked' : 'status-other'))"
-                                                  th:text="${response.certificateStatus}">
-                                                ISSUED
-                                            </span>
-                                        </td>
-                                    </tr>
                                 </tbody>
                             </table>
 
-                            <div style="margin-top: var(--spacing-lg); display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
+                            <hr class="section-divider">
+
+                            <!-- Day 6: Digital Signature Section -->
+                            <div class="security-panel" id="digital-signature-panel">
+                                <div class="security-panel-title">
+                                    <span class="icon">&#128273;</span>
+                                    Digital Signature (RSA-2048 / SHA256withRSA)
+                                </div>
+
+                                <table class="result-details-table" id="signature-details-table">
+                                    <tbody>
+                                        <tr>
+                                            <th>Signature Status</th>
+                                            <td>
+                                                <span id="res-sig-status"
+                                                      th:class="'sig-badge ' + (${response.signatureValid} ? 'sig-valid' : (${response.signatureStatus == 'SIGNATURE MISSING'} ? 'sig-missing' : (${response.signatureStatus == 'KEY NOT FOUND'} ? 'sig-nokey' : 'sig-invalid')))"
+                                                      th:text="${response.signatureStatus}">
+                                                    VALID
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Digital Signature</th>
+                                            <td id="res-sig-valid">
+                                                <strong th:if="${response.signatureValid}" style="color: #166534;">&#9989; Valid — Certificate signed by issuing institution</strong>
+                                                <strong th:if="${!response.signatureValid and response.signatureStatus == 'SIGNATURE MISSING'}" style="color: #92400e;">&#9888; No signature stored (pre-Day 6 certificate)</strong>
+                                                <strong th:if="${!response.signatureValid and response.signatureStatus == 'KEY NOT FOUND'}" style="color: #475569;">&#8209;&#8209; Institution public key not available in key store</strong>
+                                                <strong th:if="${!response.signatureValid and response.signatureStatus == 'INVALID'}" style="color: #991b1b;">&#10060; Invalid — Signature does not match (possible tampering)</strong>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Issuing Institution</th>
+                                            <td id="res-signing-inst">
+                                                <span th:if="${response.signingInstitution != null}" th:text="${response.signingInstitution}">Institution</span>
+                                                <span th:if="${response.signingInstitution == null}" style="color: var(--color-text-muted);">N/A</span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Public Key Fingerprint</th>
+                                            <td>
+                                                <span th:if="${response.publicKeyFingerprint != null}"
+                                                      class="fingerprint-box" id="res-pk-fingerprint"
+                                                      th:text="${response.publicKeyFingerprint}">
+                                                    A3:F1:2C:88:...
+                                                </span>
+                                                <span th:if="${response.publicKeyFingerprint == null}"
+                                                      style="color: var(--color-text-muted);" id="res-pk-fingerprint-na">N/A</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                                <!-- Notice: private key never shown -->
+                                <div class="security-notice">
+                                    &#128274; <strong>Security Notice:</strong> Private keys are never displayed or exposed via any endpoint. Only the public key fingerprint is shown above for identification. In production, RSA private keys must be stored in a Hardware Security Module (HSM) or Java KeyStore.
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div style="margin-top: var(--spacing-lg); display: flex; gap: var(--spacing-sm); justify-content: flex-end; flex-wrap: wrap;">
                                 <a th:href="@{/blockchain}" class="btn btn-secondary">Explore Blockchain</a>
-                                <a th:href="@{'/certificate/' + ${response.certificateId}}" class="btn btn-secondary" th:if="${response.result != 'Certificate Not Found / Potentially Fake'}">View Certificate Record</a>
+                                <a th:href="@{'/certificate/' + ${response.certificateId}}" class="btn btn-secondary"
+                                   th:if="${response.result != 'Certificate Not Found / Potentially Fake'}">View Certificate Record</a>
                                 <a href="/verify" class="btn btn-primary">Verify Another</a>
                             </div>
 
@@ -417,7 +618,7 @@
                 <span class="brand-icon">&#128196;</span>
                 <span>Offline Certificate Verification Using Blockchain</span>
             </div>
-            <p class="footer-sub">Java Project - Day 4: Certificate Verification & Fraud Detection</p>
+            <p class="footer-sub">Java Project - Day 6: Digital Signature Security</p>
             <p class="footer-copy">&copy; 2024 Certificate Verification System. College Project Demonstration.</p>
         </div>
     </footer>
