@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="View and manage blockchain offline sync status, generate snapshot packages, and import sync files.">
+    <title th:text="${pageTitle}">Blockchain Synchronization Status</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style>
+        .sync-wrapper {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .sync-card {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .action-bar {
+            display: flex;
+            gap: var(--spacing-md);
+            flex-wrap: wrap;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .alert-success {
+            background-color: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+            padding: var(--spacing-md);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-lg);
+            font-weight: 500;
+        }
+
+        .alert-error {
+            background-color: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            padding: var(--spacing-md);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-lg);
+            font-weight: 500;
+        }
+
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+            margin-top: var(--spacing-md);
+        }
+
+        .info-table th,
+        .info-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--color-border);
+            text-align: left;
+        }
+
+        .info-table th {
+            width: 35%;
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            background-color: #f8fafc;
+        }
+
+        .info-table td {
+            color: var(--color-text-primary);
+        }
+
+        .flow-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            margin-top: var(--spacing-xl);
+        }
+
+        .flow-steps {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: var(--spacing-md);
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+        }
+
+        .flow-step-box {
+            background: #ffffff;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            padding: var(--spacing-md);
+            flex: 1;
+            min-width: 180px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .flow-step-box h4 {
+            margin: 0 0 var(--spacing-xs) 0;
+            font-size: 0.95rem;
+            color: var(--color-accent);
+        }
+
+        .flow-step-box p {
+            margin: 0;
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+
+        .flow-arrow {
+            font-size: 1.5rem;
+            color: var(--color-text-muted);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container header-inner">
+            <div class="brand">
+                <span class="brand-icon">&#128196;</span>
+                <span class="brand-name">Offline Certificate Verification Using Blockchain</span>
+            </div>
+            <nav class="nav" id="main-nav" aria-label="Main navigation">
+                <ul class="nav-list">
+                    <li><a href="/" class="nav-link" id="nav-home">Home</a></li>
+                    <li><a href="/verify" class="nav-link" id="nav-verify">Verify Certificate</a></li>
+                    <li><a href="/verify-qr" class="nav-link" id="nav-verify-qr">QR Verify</a></li>
+                    <li><a href="/issue" class="nav-link" id="nav-issue">Issue Certificate</a></li>
+                    <li><a href="/certificates" class="nav-link" id="nav-certificates">Manage Certificates</a></li>
+                    <li><a href="/revoke" class="nav-link" id="nav-revoke">Revoke</a></li>
+                    <li><a href="/blockchain" class="nav-link" id="nav-blockchain">Blockchain</a></li>
+                    <li><a href="/audit" class="nav-link" id="nav-audit">Audit Trail</a></li>
+                    <li><a href="/offline-verify" class="nav-link" id="nav-offline-verify">Offline Verify</a></li>
+                    <li><a href="/sync-status" class="nav-link active" id="nav-sync-status">Sync Status</a></li>
+                    <li><a href="/about" class="nav-link" id="nav-about">About</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-hero">
+            <div class="container">
+                <div style="display: flex; align-items: center; gap: 0.75rem; justify-content: center; margin-bottom: 0.5rem;">
+                    <span class="offline-mode-badge">&#128257; SYNCHRONIZATION</span>
+                </div>
+                <h1 class="page-title">Blockchain Synchronization Status</h1>
+                <p class="page-sub">Export snapshots from the live blockchain ledger to enable realistic, disconnected offline certificate verification.</p>
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="container">
+                <div class="sync-wrapper">
+
+                    <!-- Flash messages -->
+                    <div th:if="${successMessage}" class="alert-success" th:text="${successMessage}"></div>
+                    <div th:if="${errorMessage}" class="alert-error" th:text="${errorMessage}"></div>
+
+                    <!-- Chain Validation alert -->
+                    <div th:if="${chainValidationPerformed}">
+                        <div th:if="${chainValid}" class="alert-success">
+                            &#9989; <strong>Validation Passed:</strong> <span th:text="${chainValidationMessage}"></span>
+                        </div>
+                        <div th:unless="${chainValid}" class="alert-error">
+                            &#9888; <strong>Validation Failed:</strong> <span th:text="${chainValidationMessage}"></span>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Grid -->
+                    <div class="sync-card-grid">
+                        <div class="sync-metric-card">
+                            <div class="sync-metric-label">Cached Blocks</div>
+                            <div class="sync-metric-value" th:text="${blockCount}">0</div>
+                        </div>
+                        <div class="sync-metric-card">
+                            <div class="sync-metric-label">Cached Certificates</div>
+                            <div class="sync-metric-value" th:text="${certificateCount}">0</div>
+                        </div>
+                        <div class="sync-metric-card">
+                            <div class="sync-metric-label">Revoked Count</div>
+                            <div class="sync-metric-value" style="color: #ea580c;" th:text="${revokedCount}">0</div>
+                        </div>
+                        <div class="sync-metric-card">
+                            <div class="sync-metric-label">Verifier Status</div>
+                            <div class="sync-metric-value" style="font-size: 1.3rem; color: #166534;">
+                                <span class="status-indicator-dot online"></span> READY
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Bar -->
+                    <div class="action-bar">
+                        <form th:action="@{/sync/generate}" method="post" style="display: inline;">
+                            <button type="submit" class="btn btn-primary" id="btn-generate-sync">
+                                &#128229; Generate Offline Sync Package
+                            </button>
+                        </form>
+
+                        <form th:action="@{/sync/import}" method="post" style="display: inline;">
+                            <button type="submit" class="btn btn-secondary" id="btn-import-sync">
+                                &#128257; Import / Reload Sync Package
+                            </button>
+                        </form>
+
+                        <a href="/sync-status?validateChain=true" class="btn btn-secondary" id="btn-validate-offline-chain">
+                            &#128269; Validate Offline Blockchain Integrity
+                        </a>
+
+                        <a href="/offline-verify" class="btn btn-outline" style="margin-left: auto;">
+                            &#9889; Go to Offline Verifier &rarr;
+                        </a>
+                    </div>
+
+                    <!-- Details Card -->
+                    <div class="sync-card">
+                        <h2 style="margin-top: 0; font-size: 1.25rem;">Snapshot Package Details</h2>
+                        <p class="form-hint" style="margin-bottom: var(--spacing-md);">
+                            The offline synchronization package contains all blockchain records, canonical certificate records with revocation statuses, and Base64-encoded institution public keys.
+                        </p>
+
+                        <table class="info-table">
+                            <tbody>
+                                <tr>
+                                    <th>Snapshot File Path</th>
+                                    <td>
+                                        <code style="font-family: monospace; background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 4px;" th:text="${syncFilePath}">offline_sync/blockchain_snapshot.json</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>File On Disk</th>
+                                    <td>
+                                        <span th:if="${syncFileExists}" style="color: #166534; font-weight: 600;">&#9989; File exists</span>
+                                        <span th:unless="${syncFileExists}" style="color: #991b1b; font-weight: 600;">&#10060; Not yet generated (Click "Generate Sync Package" above)</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Last Synchronized</th>
+                                    <td>
+                                        <span th:if="${lastSyncTime != null}" th:text="${lastSyncTime}">Just now</span>
+                                        <span th:unless="${lastSyncTime != null}" style="color: var(--color-text-muted);">Not synced during current runtime</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Format</th>
+                                    <td>JSON (Standard Offline Blockchain Snapshot v1.0)</td>
+                                </tr>
+                                <tr>
+                                    <th>Security Model</th>
+                                    <td>Local cryptographic verification using SHA-256 and RSA-2048 public keys</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Architecture Flow Card -->
+                    <div class="flow-card">
+                        <h3 style="margin-top: 0; font-size: 1.1rem; color: var(--color-text-primary);">
+                            Offline Verification Workflow
+                        </h3>
+                        <p style="margin: 0; font-size: 0.88rem; color: var(--color-text-secondary);">
+                            How verification succeeds when completely disconnected from the Internet:
+                        </p>
+
+                        <div class="flow-steps">
+                            <div class="flow-step-box">
+                                <h4>1. Online Ledger</h4>
+                                <p>Institution issues certs &amp; records blocks on SQLite blockchain.</p>
+                            </div>
+                            <div class="flow-arrow">&rarr;</div>
+                            <div class="flow-step-box">
+                                <h4>2. Sync Snapshot</h4>
+                                <p>Package exported to JSON file with blocks, certs &amp; public keys.</p>
+                            </div>
+                            <div class="flow-arrow">&rarr;</div>
+                            <div class="flow-step-box">
+                                <h4>3. Offline Verifier</h4>
+                                <p>Verifier loads snapshot. Recalculates hash &amp; verifies RSA signature.</p>
+                            </div>
+                            <div class="flow-arrow">&rarr;</div>
+                            <div class="flow-step-box">
+                                <h4>4. Result</h4>
+                                <p>Genuine, Tampered, Revoked, Expired, or Not Found.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container footer-inner">
+            <p>&copy; 2024-2026 Offline Certificate Verification System. Day 8 - Offline Verification &amp; Blockchain Sync.</p>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js}"></script>
+</body>
+</html>

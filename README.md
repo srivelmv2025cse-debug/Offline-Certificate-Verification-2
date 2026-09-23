@@ -259,6 +259,94 @@ Day 5 delivers full cryptographic QR Code generation, non-sensitive credential e
 
 ---
 
+## Day 8 Implementation — Offline Verification & Blockchain Synchronization
+
+Day 8 delivers a **realistic, Internet-independent offline certificate verification** system. Certificates can now be verified without any network access using a locally cached blockchain snapshot.
+
+### Architecture
+
+```
+ONLINE (Institution Side)              OFFLINE (Field Verifier Side)
+┌──────────────────────────┐            ┌──────────────────────────────┐
+│ Live SQLite blockchain   │            │ Local blockchain snapshot    │
+│ Institution public keys  │ ──JSON──►  │ (offline_sync/*.json)        │
+│ Certificate database     │            │          ↓                   │
+└──────────────────────────┘            │ OfflineVerificationService   │
+                                        │          ↓                   │
+                                        │ GENUINE / TAMPERED / REVOKED │
+                                        │ EXPIRED  / NOT_FOUND         │
+                                        └──────────────────────────────┘
+```
+
+### Key Features Implemented
+
+- [x] **Offline Sync Package Generation (`SyncService`)**:
+  - Exports all blockchain blocks, certificate records, and Base64-encoded RSA-2048 institution public keys to a self-contained JSON snapshot file (`offline_sync/blockchain_snapshot.json`).
+  - Snapshot auto-loaded on application startup if file exists.
+- [x] **Offline Blockchain Cache (`OfflineBlockchainService`)**:
+  - In-memory copy of the exported blockchain with the same SHA-256 hash chain logic as the live `Blockchain` class.
+  - `isChainValid()` verifies genesis block, sequential block indices, each block's hash, and hash chain linkage — 100% cryptographic verification.
+- [x] **Offline Verification Service (`OfflineVerificationService`)**:
+  - Performs full 3-factor verification using **zero** online API calls or database queries:
+    1. **Blockchain integrity**: Recalculates SHA-256 canonical hash and compares to the offline block record.
+    2. **RSA digital signature**: Verifies issuer's signature using institution public key from the offline cache.
+    3. **Revocation/expiry**: Checks offline certificate status record.
+  - Returns structured `OfflineVerificationResult` with `GENUINE | TAMPERED | REVOKED | EXPIRED | NOT_FOUND`.
+- [x] **Offline Verification Manager (`OfflineVerificationManager`)**:
+  - Delegates to `OfflineVerificationService` for certificate-ID-based offline checks.
+  - Supports JSON snapshot export/import as string for programmatic use.
+- [x] **Sync Status Dashboard (`/sync-status`)**:
+  - Shows block count, certificate count, revoked count, and verifier readiness.
+  - Buttons to Generate Snapshot, Import/Reload Snapshot, and validate offline chain integrity.
+- [x] **Offline Verify Page (`/offline-verify`)**:
+  - Amber "⚡ OFFLINE MODE" banner indicating disconnected operation.
+  - Certificate ID input with optional field overrides for tamper testing.
+  - Color-coded result banners: Genuine (green), Tampered (red), Revoked (orange), Expired (yellow), Not Found (grey).
+- [x] **Navigation Updated**: All 9 existing pages now include "Offline Verify" and "Sync Status" links.
+- [x] **Integration Tests (`OfflineVerificationIntegrationTests`)**: 14 tests covering sync generation, import, GENUINE, TAMPERED (field override), REVOKED, EXPIRED, NOT_FOUND, chain integrity, manager delegation, and all 4 UI endpoints.
+
+### Offline Sync Package Format (`blockchain_snapshot.json`)
+
+```json
+{
+  "generatedAt": "2024-09-22T05:10:00Z",
+  "version": "1.0",
+  "totalBlocks": 12,
+  "totalCertificates": 11,
+  "totalRevokedCertificates": 2,
+  "blockchainBlocks": [
+    {
+      "index": 0,
+      "timestamp": 1726924200000,
+      "certificateId": "GENESIS",
+      "certificateHash": "0000000000000000",
+      "previousHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "hash": "f273c1970da757..."
+    }
+  ],
+  "certificates": [
+    {
+      "certificateId": "CERT-2024-001",
+      "studentName": "Jane Doe",
+      "courseName": "B.Tech Computer Science",
+      "institutionName": "State University",
+      "certificateType": "Degree",
+      "issueDate": "2024-06-01",
+      "expiryDate": "",
+      "status": "VALID",
+      "blockchainHash": "abc123...",
+      "digitalSignature": "<Base64-RSA-sig>",
+      "revoked": false
+    }
+  ],
+  "publicKeys": {
+    "state university": "<Base64-DER-RSA-2048-public-key>"
+  }
+}
+```
+
+---
+
 ## How to Run
 
 ### Prerequisites
@@ -270,7 +358,7 @@ Day 5 delivers full cryptographic QR Code generation, non-sensitive credential e
 ### Steps
 
 ```bash
-# 1. Build project and run all 74 tests
+# 1. Build project and run all 88 tests
 mvn clean test
 
 # 2. Run the application
@@ -284,14 +372,16 @@ The application starts on **http://localhost:8080**
 | URL | Description |
 |---|---|
 | `http://localhost:8080/` | Homepage with quick actions |
-| `http://localhost:8080/verify` | **Certificate Verification (3-Factor: Hash + Signature + Revocation)** |
+| `http://localhost:8080/verify` | Certificate Verification (3-Factor: Hash + Signature + Revocation) |
 | `http://localhost:8080/verify-qr` | QR Code Certificate Verification |
 | `http://localhost:8080/issue` | Issue Certificate form (auto-generates QR & digital signature) |
 | `http://localhost:8080/certificates` | Certificate Management with search & status indicators |
 | `http://localhost:8080/certificate/{id}` | Certificate Details with QR code, signature, and revocation status |
-| `http://localhost:8080/revoke` | **Day 7: Certificate Revocation Portal (search & revoke with reason)** |
-| `http://localhost:8080/audit` | **Day 7: Audit Trail (table of timestamp, cert ID, action, result)** |
+| `http://localhost:8080/revoke` | Certificate Revocation Portal (search & revoke with reason) |
+| `http://localhost:8080/audit` | Audit Trail (timestamp, cert ID, action, result) |
 | `http://localhost:8080/blockchain` | Blockchain Explorer & Chain Validator |
+| `http://localhost:8080/offline-verify` | **Day 8: Offline Certificate Verification (no Internet required)** |
+| `http://localhost:8080/sync-status` | **Day 8: Blockchain Sync Status Dashboard (generate & import snapshot)** |
 | `http://localhost:8080/about` | About page |
 
 ### Available REST APIs
@@ -299,11 +389,11 @@ The application starts on **http://localhost:8080**
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/api/certificates/verify` | Verify certificate (3-factor: hash + signature + revocation) |
-| `POST` | `/api/certificates/{id}/revoke` | **Revoke certificate with optional reason in body or query param (Day 7)** |
-| `GET` | `/api/certificates/search` | **Search certificates by ID, student, or institution (Day 7)** |
-| `GET` | `/api/audit-logs` | **Retrieve all audit trail entries with optional filtering (Day 7)** |
-| `GET` | `/api/audit-logs/{id}` | **Retrieve specific audit log entry by ID (Day 7)** |
-| `GET` | `/api/audit-logs/certificate/{id}` | **Retrieve audit logs for a specific certificate (Day 7)** |
+| `POST` | `/api/certificates/{id}/revoke` | Revoke certificate with optional reason |
+| `GET` | `/api/certificates/search` | Search certificates by ID, student, or institution |
+| `GET` | `/api/audit-logs` | Retrieve all audit trail entries with optional filtering |
+| `GET` | `/api/audit-logs/{id}` | Retrieve specific audit log entry by ID |
+| `GET` | `/api/audit-logs/certificate/{id}` | Retrieve audit logs for a specific certificate |
 | `POST` | `/api/qr/verify` | Verify certificate via QR code or manual ID |
 | `POST` | `/api/qr/generate/{id}` | Generate QR code for certificate |
 | `GET` | `/api/qr/{id}` | Get QR code data & payload |
@@ -328,7 +418,11 @@ The application starts on **http://localhost:8080**
 | `Day 5` | QR code certificate verification |
 | `Day 6` | Digital signature security |
 | `Day 7` | Revocation and audit trail |
+| `Day 8` | Offline verification and blockchain synchronization |
 
 ---
 
-*College Project · Java 21 · Spring Boot · Blockchain · RSA Digital Signatures · Audit Trail*
+*College Project · Java 21 · Spring Boot · Blockchain · RSA Digital Signatures · Offline Verification*
+
+
+

@@ -8,6 +8,11 @@ import com.certificateverification.qr.QRService;
 import com.certificateverification.qr.QRVerificationRequest;
 import com.certificateverification.qr.QRVerificationResponse;
 import com.certificateverification.service.CertificateService;
+import com.certificateverification.offline.OfflineBlockchainService;
+import com.certificateverification.offline.OfflineSyncPackage;
+import com.certificateverification.offline.OfflineVerificationResult;
+import com.certificateverification.offline.OfflineVerificationService;
+import com.certificateverification.offline.SyncService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -19,7 +24,7 @@ import java.util.Optional;
 
 /**
  * Web MVC controller serving UI pages: home, issue, management, blockchain explorer,
- * canonical verification, and Day 5 QR code verification.
+ * canonical verification, Day 5 QR code verification, and Day 8 Offline verification.
  */
 @Controller
 public class HomeController {
@@ -28,22 +33,31 @@ public class HomeController {
     private final Blockchain blockchain;
     private final QRService qrService;
     private final com.certificateverification.service.AuditLogService auditLogService;
+    private final OfflineVerificationService offlineVerificationService;
+    private final SyncService syncService;
+    private final OfflineBlockchainService offlineBlockchainService;
 
     public HomeController(CertificateService certificateService,
                           Blockchain blockchain,
                           QRService qrService) {
-        this(certificateService, blockchain, qrService, null);
+        this(certificateService, blockchain, qrService, null, null, null, null);
     }
 
     @Autowired
     public HomeController(CertificateService certificateService,
                           Blockchain blockchain,
                           QRService qrService,
-                          @Autowired(required = false) com.certificateverification.service.AuditLogService auditLogService) {
+                          @Autowired(required = false) com.certificateverification.service.AuditLogService auditLogService,
+                          @Autowired(required = false) OfflineVerificationService offlineVerificationService,
+                          @Autowired(required = false) SyncService syncService,
+                          @Autowired(required = false) OfflineBlockchainService offlineBlockchainService) {
         this.certificateService = certificateService;
         this.blockchain = blockchain;
         this.qrService = qrService;
         this.auditLogService = auditLogService;
+        this.offlineVerificationService = offlineVerificationService;
+        this.syncService = syncService;
+        this.offlineBlockchainService = offlineBlockchainService;
     }
 
     @GetMapping("/")
@@ -281,5 +295,159 @@ public class HomeController {
             model.addAttribute("errorMessage", "QR verification error: " + e.getMessage());
         }
         return "qr-verify";
+    }
+
+    // =========================================================================
+    // Day 8: Offline Verification & Blockchain Synchronization
+    // =========================================================================
+
+    @GetMapping("/offline-verify")
+    public String showOfflineVerifyPage(@RequestParam(value = "certificateId", required = false) String certificateId, Model model) {
+        model.addAttribute("pageTitle", "Offline Certificate Verification");
+        if (certificateId != null && !certificateId.trim().isEmpty()) {
+            model.addAttribute("certificateId", certificateId.trim());
+        }
+        boolean isLoaded = syncService != null && (syncService.getLastSyncPackage() != null || syncService.isSyncFileExists());
+        model.addAttribute("isLoaded", isLoaded);
+        model.addAttribute("lastSyncTime", syncService != null ? syncService.getLastSyncTime() : null);
+        model.addAttribute("blockCount", syncService != null ? syncService.getBlockCount() : 0);
+        model.addAttribute("certCount", syncService != null ? syncService.getCertificateCount() : 0);
+        return "offline-verify";
+    }
+
+    @PostMapping("/offline-verify")
+    public String verifyOffline(
+            @RequestParam("certificateId") String certificateId,
+            @RequestParam(value = "studentName", required = false) String studentName,
+            @RequestParam(value = "courseName", required = false) String courseName,
+            @RequestParam(value = "institutionName", required = false) String institutionName,
+            Model model) {
+        model.addAttribute("pageTitle", "Offline Verification Result");
+        try {
+            if (offlineVerificationService != null) {
+                OfflineVerificationResult result = offlineVerificationService.verifyOffline(
+                        certificateId, studentName, courseName, institutionName, null, null, null);
+                model.addAttribute("result", result);
+                model.addAttribute("verificationPerformed", true);
+                model.addAttribute("certificateId", certificateId);
+                model.addAttribute("studentName", studentName);
+                model.addAttribute("courseName", courseName);
+                model.addAttribute("institutionName", institutionName);
+
+                if (auditLogService != null) {
+                    auditLogService.log(
+                            certificateId,
+                            "OFFLINE_VERIFICATION",
+                            result.getResult(),
+                            "Offline verification result: " + result.getResult() + " | " + result.getMessage(),
+                            "127.0.0.1-offline"
+                    );
+                }
+            } else {
+                model.addAttribute("errorMessage", "Offline verification service is not available.");
+            }
+        } catch (Exception e) {
+            model.addAttribute("errorMessage", "Offline verification failed: " + e.getMessage());
+        }
+
+        boolean isLoaded = syncService != null && (syncService.getLastSyncPackage() != null || syncService.isSyncFileExists());
+        model.addAttribute("isLoaded", isLoaded);
+        model.addAttribute("lastSyncTime", syncService != null ? syncService.getLastSyncTime() : null);
+        model.addAttribute("blockCount", syncService != null ? syncService.getBlockCount() : 0);
+        model.addAttribute("certCount", syncService != null ? syncService.getCertificateCount() : 0);
+        return "offline-verify";
+    }
+
+    @GetMapping("/sync-status")
+    public String showSyncStatus(@RequestParam(value = "validateChain", required = false) Boolean validateChain, Model model) {
+        model.addAttribute("pageTitle", "Blockchain Synchronization Status");
+        if (syncService != null) {
+            model.addAttribute("lastSyncTime", syncService.getLastSyncTime());
+            model.addAttribute("syncFileExists", syncService.isSyncFileExists());
+            model.addAttribute("syncFilePath", syncService.getSyncFilePath());
+            model.addAttribute("blockCount", syncService.getBlockCount());
+            model.addAttribute("certificateCount", syncService.getCertificateCount());
+            model.addAttribute("revokedCount", syncService.getRevokedCount());
+            model.addAttribute("syncPackage", syncService.getLastSyncPackage());
+            model.addAttribute("isLoaded", syncService.getLastSyncPackage() != null);
+        }
+
+        if (Boolean.TRUE.equals(validateChain) && offlineBlockchainService != null) {
+            boolean chainValid = offlineBlockchainService.isChainValid();
+            model.addAttribute("chainValidationPerformed", true);
+            model.addAttribute("chainValid", chainValid);
+            model.addAttribute("chainValidationMessage", chainValid
+                    ? "Offline blockchain chain integrity is valid and cryptographically verified!"
+                    : "Offline blockchain chain is invalid or tampered!");
+
+            if (auditLogService != null) {
+                auditLogService.log(
+                        "OFFLINE_BLOCKCHAIN",
+                        "BLOCKCHAIN_VALIDATION",
+                        chainValid ? "VALID" : "TAMPERED",
+                        "Offline blockchain integrity check. Valid: " + chainValid
+                                + ", Total offline blocks: " + offlineBlockchainService.getChainSize(),
+                        "127.0.0.1-offline"
+                );
+            }
+        }
+        return "sync-status";
+    }
+
+    @PostMapping("/sync/generate")
+    public String generateSyncPackage(RedirectAttributes redirectAttributes) {
+        try {
+            if (syncService != null) {
+                OfflineSyncPackage pkg = syncService.generateSyncPackage();
+                redirectAttributes.addFlashAttribute("successMessage",
+                        "Offline sync package successfully generated! Exported "
+                                + pkg.getTotalBlocks() + " blocks and "
+                                + pkg.getTotalCertificates() + " certificates ("
+                                + pkg.getTotalRevokedCertificates() + " revoked).");
+
+                if (auditLogService != null) {
+                    auditLogService.log(
+                            "SYNC_PACKAGE",
+                            "SYNC_GENERATE",
+                            "SUCCESS",
+                            "Generated sync package with " + pkg.getTotalBlocks() + " blocks and " + pkg.getTotalCertificates() + " certs",
+                            "127.0.0.1"
+                    );
+                }
+            } else {
+                redirectAttributes.addFlashAttribute("errorMessage", "SyncService not available.");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Failed to generate sync package: " + e.getMessage());
+        }
+        return "redirect:/sync-status";
+    }
+
+    @PostMapping("/sync/import")
+    public String importSyncPackage(RedirectAttributes redirectAttributes) {
+        try {
+            if (syncService != null) {
+                OfflineSyncPackage pkg = syncService.importDefaultSyncPackage();
+                redirectAttributes.addFlashAttribute("successMessage",
+                        "Offline sync package imported successfully! Loaded "
+                                + pkg.getTotalBlocks() + " blocks and "
+                                + pkg.getTotalCertificates() + " certificates.");
+
+                if (auditLogService != null) {
+                    auditLogService.log(
+                            "SYNC_PACKAGE",
+                            "SYNC_IMPORT",
+                            "SUCCESS",
+                            "Imported sync package with " + pkg.getTotalBlocks() + " blocks and " + pkg.getTotalCertificates() + " certs",
+                            "127.0.0.1"
+                    );
+                }
+            } else {
+                redirectAttributes.addFlashAttribute("errorMessage", "SyncService not available.");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Failed to import sync package: " + e.getMessage());
+        }
+        return "redirect:/sync-status";
     }
 }

@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 import jakarta.annotation.PostConstruct;
 import java.security.KeyPair;
 import java.security.PublicKey;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -103,6 +105,18 @@ public class InstitutionKeyStore {
     public PublicKey getPublicKey(String institutionName) {
         KeyPair kp = keyStore.get(normalise(institutionName));
         return kp != null ? kp.getPublic() : null;
+    }
+
+    /**
+     * Retrieve an unmodifiable map of all registered institutions and their public keys.
+     * Safe for export in sync packages.
+     *
+     * @return map of institution name to public key
+     */
+    public Map<String, PublicKey> getAllPublicKeys() {
+        Map<String, PublicKey> result = new HashMap<>();
+        keyStore.forEach((name, kp) -> result.put(name, kp.getPublic()));
+        return Collections.unmodifiableMap(result);
     }
 
     /**

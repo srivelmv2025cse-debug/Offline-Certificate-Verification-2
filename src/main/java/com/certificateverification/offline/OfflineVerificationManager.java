@@ -3,6 +3,7 @@ package com.certificateverification.offline;
 import com.certificateverification.qr.QRService;
 import com.certificateverification.qr.QRVerificationRequest;
 import com.certificateverification.qr.QRVerificationResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Component;
  * Allows certificate verification without an active Internet connection
  * by querying locally cached blockchain data and decoding QR codes.
  *
- * <p>Day 5: Integrated with QRService for offline QR code verification.</p>
+ * <p>Day 8: Fully integrated with {@link OfflineVerificationService} and {@link SyncService}.</p>
  */
 @Component
 public class OfflineVerificationManager {
@@ -21,10 +22,19 @@ public class OfflineVerificationManager {
     private static final Logger logger = LoggerFactory.getLogger(OfflineVerificationManager.class);
 
     private final QRService qrService;
+    private final OfflineVerificationService offlineVerificationService;
+    private final SyncService syncService;
+    private final ObjectMapper objectMapper;
 
     @Autowired
-    public OfflineVerificationManager(QRService qrService) {
+    public OfflineVerificationManager(QRService qrService,
+                                     OfflineVerificationService offlineVerificationService,
+                                     SyncService syncService,
+                                     ObjectMapper objectMapper) {
         this.qrService = qrService;
+        this.offlineVerificationService = offlineVerificationService;
+        this.syncService = syncService;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -43,7 +53,7 @@ public class OfflineVerificationManager {
     }
 
     /**
-     * Full offline verification returning complete response.
+     * Full offline verification returning complete QR response.
      */
     public QRVerificationResponse verifyOfflineDetails(String qrCodeData) {
         QRVerificationRequest request = QRVerificationRequest.builder()
@@ -53,17 +63,45 @@ public class OfflineVerificationManager {
     }
 
     /**
-     * Placeholder: Export the local blockchain snapshot for offline use.
+     * Verify a certificate ID strictly offline using the local synchronized snapshot.
      */
-    public String exportBlockchainSnapshot() {
-        logger.info("OfflineVerificationManager.exportBlockchainSnapshot()");
-        return "{\"status\": \"snapshot-ready\"}";
+    public OfflineVerificationResult verifyCertificateOffline(String certificateId) {
+        return offlineVerificationService.verifyOffline(certificateId);
     }
 
     /**
-     * Placeholder: Import and sync a blockchain snapshot.
+     * Export the local blockchain snapshot for offline use as JSON string.
      */
-    public void importBlockchainSnapshot(String snapshot) {
-        logger.info("OfflineVerificationManager.importBlockchainSnapshot()");
+    public String exportBlockchainSnapshot() {
+        logger.info("OfflineVerificationManager: Generating offline snapshot");
+        try {
+            OfflineSyncPackage pkg = syncService.generateSyncPackage();
+            return objectMapper.writeValueAsString(pkg);
+        } catch (Exception e) {
+            logger.error("Failed to export blockchain snapshot: {}", e.getMessage(), e);
+            return "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    /**
+     * Import and sync a blockchain snapshot from a JSON string.
+     */
+    public void importBlockchainSnapshot(String snapshotJson) {
+        logger.info("OfflineVerificationManager: Importing blockchain snapshot from JSON string");
+        try {
+            OfflineSyncPackage pkg = objectMapper.readValue(snapshotJson, OfflineSyncPackage.class);
+            offlineVerificationService.loadFromSyncPackage(pkg);
+        } catch (Exception e) {
+            logger.error("Failed to import blockchain snapshot: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to import snapshot", e);
+        }
+    }
+
+    public OfflineVerificationService getOfflineVerificationService() {
+        return offlineVerificationService;
+    }
+
+    public SyncService getSyncService() {
+        return syncService;
     }
 }

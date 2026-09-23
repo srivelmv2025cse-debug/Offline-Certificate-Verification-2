@@ -61,6 +61,7 @@ class RevocationAndAuditIntegrationTests {
     private ObjectMapper objectMapper;
 
     private Certificate createTestCert(String certId, String student, String course, String institution, LocalDate expiryDate) {
+        certificateRepository.findByCertificateId(certId).ifPresent(c -> certificateRepository.delete(c));
         Certificate cert = new Certificate();
         cert.setCertificateId(certId);
         cert.setStudentName(student);
